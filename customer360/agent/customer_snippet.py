@@ -1,0 +1,109 @@
+"""Short ranked customer lists for copilot answers."""
+
+from __future__ import annotations
+
+import sqlite3
+
+from customer360.agent.list_filters import CustomerListFilters
+from customer360.api.customer_list import customer_list_where
+from customer360.api.sorting import normalize_sort_by, normalize_sort_order, order_clause
+from customer360.api.value_history import CUSTOMER_VALUE_SQL
+from customer360.api.metrics_cache import customer_metrics_populated
+from customer360.territory_formatting import format_territory_money
+from customer360.warehouse import INVESTMENTS, POLICIES, customer_name_expr
+
+_POLICY_COUNT_SELECT = f"""
+(
+    SELECT COUNT(*)
+    FROM {POLICIES} p
+    WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
+) AS policy_count
+""".strip()
+
+_INVESTMENT_COUNT_SELECT = f"""
+(
+    SELECT COUNT(*)
+    FROM (
+        SELECT DISTINCT pit.POLICY_NUMBER, pit.FUND_ID
+        FROM {INVESTMENTS} pit
+        WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
+    )
+) AS investment_count
+""".strip()
+
+
+def top_customers_snippet(
+    conn: sqlite3.Connection,
+    *,
+    filters: CustomerListFilters,
+    default_segment: str,
+    limit: int = 10,
+) -> str | None:
+    f = filters.normalized(default_segment=default_segment)
+    limit = max(1, min(int(limit), f.page_size, 15))
+    sort_by = normalize_sort_by(f.sort_by)
+    sort_order = normalize_sort_order(f.sort_order, sort_by=sort_by)
+
+    churn_ready = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='APP_CUSTOMER_CHURN_SCORES'"
+    ).fetchone()
+    churn_join = ""
+    if churn_ready:
+        churn_join = "LEFT JOIN APP_CUSTOMER_CHURN_SCORES ch ON ch.CUSTOMER_ID = c.CUSTOMER_ID"
+
+    if customer_metrics_populated(conn):
+        value_sql = "m.CUSTOMER_VALUE"
+        metrics_join = "INNER JOIN APP_CUSTOMER_METRICS m ON m.CUSTOMER_ID = c.CUSTOMER_ID"
+        policy_count_sql = "m.POLICY_COUNT AS policy_count"
+        investment_count_sql = "m.INVESTMENT_TRACK_COUNT AS investment_count"
+    else:
+        value_sql = f"ROUND({CUSTOMER_VALUE_SQL}, 2)"
+        metrics_join = ""
+        policy_count_sql = _POLICY_COUNT_SELECT
+        investment_count_sql = _INVESTMENT_COUNT_SELECT
+
+    where_sql, params = customer_list_where(
+        f.segment,
+        f.q,
+        policy_type_code=f.policy_type_code,
+        city=f.city,
+        churn_risk_tier=f.churn_risk_tier,
+    )
+    order_sql = order_clause(
+        sort_by,
+        sort_order,
+        churn_scores_available=bool(churn_ready),
+    )
+
+    rows = conn.execute(
+        f"""
+        SELECT
+            {customer_name_expr("c")} AS customer_name,
+            c.CITY AS city_name,
+            {policy_count_sql},
+            {investment_count_sql},
+            {value_sql} AS customer_value
+        FROM DIM_CUSTOMERS c
+        {metrics_join}
+        {churn_join}
+        WHERE {where_sql}
+        ORDER BY {order_sql}
+        LIMIT ?
+        """,
+        [*params, limit],
+    ).fetchall()
+
+    if not rows:
+        return None
+
+    lines: list[str] = []
+    for i, r in enumerate(rows, start=1):
+        name = str(r["customer_name"] or "Customer")
+        val = float(r["customer_value"] or 0)
+        city = str(r["city_name"] or "")
+        suffix = f", {city}" if city else ""
+        lines.append(f"{i}. {name}{suffix} ({format_territory_money(val, conn)})")
+    prefix = "Top customers"
+    if f.city:
+        prefix += f" in {f.city}"
+    return prefix + ": " + "; ".join(lines[:limit]) + "."
