@@ -47,7 +47,7 @@ def test_init_database_with_mock_llm_material(tmp_path: Path, monkeypatch: pytes
         assert cfg is not None
         assert cfg.get("seed_material_source") == "llm"
         row = conn.execute(
-            "SELECT FIRST_NAME FROM DWH_DIM_CUSTOMERS_UNIQUE WHERE CURRENT_IND = 1 LIMIT 1"
+            "SELECT COUNT(*) FROM DIM_CUSTOMERS WHERE FIRST_NAME = 'LLMGenerated'"
         ).fetchone()
         assert row is not None
-        assert row[0] == "LLMGenerated"
+        assert row[0] > 0

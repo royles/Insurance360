@@ -8,6 +8,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from customer360.interactions.summary import load_interaction_bundle
+from customer360.warehouse import FORECLOSURES, INVESTMENTS, POLICIES, in_force_flag_expr
 
 @dataclass
 class CustomerContext:
@@ -85,14 +86,14 @@ def load_customer_context(conn: sqlite3.Connection, customer_id: int) -> Custome
         """
         SELECT
             CUSTOMER_ID AS customer_id,
-            CUSTOMER_NAME AS customer_name,
-            CUSTOMER_TYPE_DSC AS customer_type_dsc,
-            MARITAL_STATUS_DSC AS marital_status_dsc,
-            CITY_NAME AS city_name,
-            COMMUNICATION_DSC AS communication_dsc,
+            TRIM(COALESCE(FIRST_NAME, '') || ' ' || COALESCE(SURNAME, '')) AS customer_name,
+            CUSTOMER_TYPE AS customer_type_dsc,
+            MARITAL_STATUS AS marital_status_dsc,
+            CITY AS city_name,
+            NULL AS communication_dsc,
             LAST_LOGIN AS last_login
-        FROM DWH_DIM_CUSTOMERS_UNIQUE
-        WHERE CURRENT_IND = 1 AND CUSTOMER_ID = ?
+        FROM DIM_CUSTOMERS
+        WHERE CUSTOMER_ID = ?
         """,
         (customer_id,),
     ).fetchone()
@@ -100,41 +101,41 @@ def load_customer_context(conn: sqlite3.Connection, customer_id: int) -> Custome
         return None
 
     policies = conn.execute(
-        """
+        f"""
         SELECT
-            POLICY_TYPE_DESC AS policy_type_desc,
-            IS_ACTIVE AS is_active,
-            POLICY_STATUS_DESC AS policy_status_desc,
-            BRUTO_MONTHLY_PREMIUM AS bruto_monthly_premium
-        FROM DWH_DIM_ALL_POLICY
+            PRODUCT_NAME AS policy_type_desc,
+            {in_force_flag_expr("DIM_POLICIES")} AS is_active,
+            POLICY_STATUS AS policy_status_desc,
+            GROSS_MONTHLY_PREMIUM AS bruto_monthly_premium
+        FROM {POLICIES}
         WHERE CUSTOMER_ID = ?
         """,
-        (str(customer_id),),
+        (customer_id,),
     ).fetchall()
 
     foreclosures = conn.execute(
-        """
-        SELECT COUNT(*) AS cnt, COALESCE(SUM(FORECLOSURES_AMOUNT), 0) AS total_amount
-        FROM DWH_FCT_FORECLOSURES
+        f"""
+        SELECT COUNT(*) AS cnt, COALESCE(SUM(FORECLOSURE_AMOUNT), 0) AS total_amount
+        FROM {FORECLOSURES}
         WHERE CUSTOMER_ID = ?
         """,
-        (str(customer_id),),
+        (customer_id,),
     ).fetchone()
 
     investments = conn.execute(
-        """
+        f"""
         SELECT
             accumulation_total,
             yearly_profit_loss_total
         FROM (
             SELECT
-                ACCUMULATION_TOTAL AS accumulation_total,
-                YEARLY_PROFIT_LOSS_TOTAL AS yearly_profit_loss_total,
+                ACCOUNT_VALUE AS accumulation_total,
+                YTD_GAIN_LOSS AS yearly_profit_loss_total,
                 ROW_NUMBER() OVER (
-                    PARTITION BY POLICY_NUM, INVESTMENT_TRACK_ID
+                    PARTITION BY POLICY_NUMBER, FUND_ID
                     ORDER BY SNAPSHOT_DATE DESC
                 ) AS rn
-            FROM DWH_FCT_POLICY_INVESTMENT_TRACK
+            FROM {INVESTMENTS}
             WHERE CUSTOMER_ID = ?
         ) t
         WHERE rn = 1

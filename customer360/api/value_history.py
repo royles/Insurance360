@@ -7,18 +7,19 @@ import sqlite3
 from customer360.api.policy_status_sql import POLICY_STATUS_COVERAGE_EXPR
 from customer360.api.segments import segment_scope_sql
 from customer360.churn.effective_risk import effective_churn_probability_sql
+from customer360.warehouse import CUSTOMERS, INVESTMENTS, POLICY_STATUS
 
 # Latest investment snapshot + latest policy status snapshot.
 CUSTOMER_VALUE_SQL = f"""
 (
   COALESCE(
     (
-      SELECT SUM(pit.ACCUMULATION_TOTAL)
-      FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+      SELECT SUM(pit.ACCOUNT_VALUE)
+      FROM {INVESTMENTS} pit
       WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
         AND pit.SNAPSHOT_DATE = (
           SELECT MAX(pit2.SNAPSHOT_DATE)
-          FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit2
+          FROM {INVESTMENTS} pit2
           WHERE pit2.CUSTOMER_ID = c.CUSTOMER_ID
         )
     ),
@@ -27,11 +28,11 @@ CUSTOMER_VALUE_SQL = f"""
   + COALESCE(
     (
       SELECT SUM({POLICY_STATUS_COVERAGE_EXPR})
-      FROM DWH_FCT_POLICY_STATUS ps
+      FROM {POLICY_STATUS} ps
       WHERE ps.CUSTOMER_ID = c.CUSTOMER_ID
         AND ps.SNAPSHOT_DATE = (
           SELECT MAX(ps2.SNAPSHOT_DATE)
-          FROM DWH_FCT_POLICY_STATUS ps2
+          FROM {POLICY_STATUS} ps2
           WHERE ps2.CUSTOMER_ID = c.CUSTOMER_ID
         )
     ),
@@ -57,11 +58,11 @@ def normalize_value_metric(value: str | None) -> str:
     return key if key in VALID_VALUE_METRICS else "total"
 
 
-_INVESTMENT_AT_PERIOD = """
+_INVESTMENT_AT_PERIOD = f"""
 COALESCE(
   (
-    SELECT SUM(pit.ACCUMULATION_TOTAL)
-    FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+    SELECT SUM(pit.ACCOUNT_VALUE)
+    FROM {INVESTMENTS} pit
     WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
       AND pit.SNAPSHOT_DATE = ?
   ),
@@ -73,7 +74,7 @@ _COVERAGE_AT_PERIOD = f"""
 COALESCE(
   (
     SELECT SUM({POLICY_STATUS_COVERAGE_EXPR})
-    FROM DWH_FCT_POLICY_STATUS ps
+    FROM {POLICY_STATUS} ps
     WHERE ps.CUSTOMER_ID = c.CUSTOMER_ID
       AND ps.SNAPSHOT_DATE = ?
   ),
@@ -119,14 +120,14 @@ def fetch_value_history(
     sql = f"""
         WITH scoped_customers AS (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM {CUSTOMERS} c
             WHERE {where_sql}
         ),
         investment AS (
             SELECT
                 pit.SNAPSHOT_DATE AS period,
-                SUM(pit.ACCUMULATION_TOTAL) AS investment_value
-            FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+                SUM(pit.ACCOUNT_VALUE) AS investment_value
+            FROM {INVESTMENTS} pit
             INNER JOIN scoped_customers sc ON sc.CUSTOMER_ID = pit.CUSTOMER_ID
             GROUP BY pit.SNAPSHOT_DATE
         ),
@@ -134,7 +135,7 @@ def fetch_value_history(
             SELECT
                 ps.SNAPSHOT_DATE AS period,
                 SUM({POLICY_STATUS_COVERAGE_EXPR}) AS coverage_value
-            FROM DWH_FCT_POLICY_STATUS ps
+            FROM {POLICY_STATUS} ps
             INNER JOIN scoped_customers sc ON sc.CUSTOMER_ID = ps.CUSTOMER_ID
             GROUP BY ps.SNAPSHOT_DATE
         ),

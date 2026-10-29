@@ -6,6 +6,7 @@ import sqlite3
 
 from customer360.api.customer_list import normalize_city_name
 from customer360.api.segments import normalize_segment, segment_scope_sql
+from customer360.warehouse import CUSTOMERS, POLICIES, in_force_flag_expr
 
 PRODUCT_CLASSES: list[tuple[str, str, tuple[int, ...]]] = [
     ("life_protection", "Life & protection", (101, 102)),
@@ -17,12 +18,11 @@ PRODUCT_CLASSES: list[tuple[str, str, tuple[int, ...]]] = [
 
 def fetch_product_catalog_city_options(conn: sqlite3.Connection) -> list[str]:
     rows = conn.execute(
-        """
-        SELECT DISTINCT c.CITY_NAME AS city_name
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
-        WHERE c.CURRENT_IND = 1
-          AND c.CITY_NAME IS NOT NULL
-          AND TRIM(c.CITY_NAME) != ''
+        f"""
+        SELECT DISTINCT c.CITY AS city_name
+        FROM {CUSTOMERS} c
+        WHERE c.CITY IS NOT NULL
+          AND TRIM(c.CITY) != ''
         ORDER BY city_name ASC
         """
     ).fetchall()
@@ -39,22 +39,22 @@ def fetch_product_catalog(
     city_canon = normalize_city_name(city)
     customer_where, params = segment_scope_sql(seg)
     if city_canon:
-        customer_where += " AND c.CITY_NAME = ?"
+        customer_where += " AND c.CITY = ?"
         params.append(city_canon)
 
     rows = conn.execute(
         f"""
         SELECT
-            p.POLICY_TYPE_CODE AS policy_type_code,
-            MAX(p.POLICY_TYPE_DESC) AS policy_type_desc,
+            p.PRODUCT_CODE AS policy_type_code,
+            MAX(p.PRODUCT_NAME) AS policy_type_desc,
             COUNT(DISTINCT p.CUSTOMER_ID) AS customer_count,
             COUNT(*) AS policy_count,
-            SUM(CASE WHEN p.IS_ACTIVE = 1 THEN 1 ELSE 0 END) AS active_policy_count
-        FROM DWH_DIM_ALL_POLICY p
-        INNER JOIN DWH_DIM_CUSTOMERS_UNIQUE c
-            ON CAST(c.CUSTOMER_ID AS TEXT) = p.CUSTOMER_ID
+            SUM({in_force_flag_expr("p")}) AS active_policy_count
+        FROM {POLICIES} p
+        INNER JOIN {CUSTOMERS} c
+            ON c.CUSTOMER_ID = p.CUSTOMER_ID
         WHERE {customer_where}
-        GROUP BY p.POLICY_TYPE_CODE
+        GROUP BY p.PRODUCT_CODE
         ORDER BY customer_count DESC, policy_type_code ASC
         """,
         params,

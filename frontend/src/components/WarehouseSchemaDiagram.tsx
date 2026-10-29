@@ -10,13 +10,12 @@ const PAD_Y = 20;
 
 /** Grid placement for the core warehouse + customer-linked app tables. */
 const CORE_LAYOUT: Record<string, { col: number; row: number }> = {
-  DWH_FCT_POLICY_STATUS: { col: 1, row: 0 },
-  DWH_FCT_INVESTMENT_TRACK: { col: 2, row: 0 },
-  DWH_DIM_CUSTOMERS_UNIQUE: { col: 0, row: 1 },
-  DWH_DIM_ALL_POLICY: { col: 1, row: 1 },
-  DWH_FCT_POLICY_INVESTMENT_TRACK: { col: 2, row: 1 },
-  DWH_FCT_FORECLOSURES: { col: 0, row: 2 },
-  DWH_FCT_FORECLOSURES_ASSETS: { col: 1, row: 2 },
+  FCT_POLICY_STATUS: { col: 1, row: 0 },
+  FCT_INVESTMENT_FUNDS: { col: 2, row: 0 },
+  DIM_CUSTOMERS: { col: 0, row: 1 },
+  DIM_POLICIES: { col: 1, row: 1 },
+  FCT_POLICY_INVESTMENTS: { col: 2, row: 1 },
+  FCT_POLICY_FORECLOSURES: { col: 0, row: 2 },
   APP_CUSTOMER_INTERACTION_EVENTS: { col: 0, row: 3 },
   APP_CUSTOMER_CHURN_SCORES: { col: 1, row: 3 },
   APP_CUSTOMER_METRICS: { col: 2, row: 3 },

@@ -12,59 +12,51 @@ from customer360.llm_provider import load_llm_config, provider_label
 
 TABLE_CATALOG: list[dict] = [
     {
-        "table_name": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "table_name": "DIM_CUSTOMERS",
         "layer": "warehouse",
         "domain": "Customer",
-        "role": "Dimension (SCD Type 2)",
-        "description": "Unique customer identities with demographics, contact, and portal activity.",
+        "role": "Dimension",
+        "description": "Policyholders: identity, marital status, occupation, contact, city, and last portal login.",
         "load_job": "2_job-init-database / customer360.seed",
     },
     {
-        "table_name": "DWH_DIM_ALL_POLICY",
+        "table_name": "DIM_POLICIES",
         "layer": "warehouse",
         "domain": "Policy",
         "role": "Dimension",
-        "description": "Policies linked to customers — life, health, property, pension, and savings products.",
+        "description": "Contracts: product, status, inception and expiry, premium, and group employer.",
         "load_job": "2_job-init-database / customer360.seed",
     },
     {
-        "table_name": "DWH_FCT_FORECLOSURES",
+        "table_name": "FCT_POLICY_FORECLOSURES",
         "layer": "warehouse",
         "domain": "Foreclosures",
         "role": "Fact",
-        "description": "Legal encumbrance headers (ikulim) by customer and portfolio.",
+        "description": "Liens registered against a customer policy.",
         "load_job": "2_job-init-database / customer360.seed",
     },
     {
-        "table_name": "DWH_FCT_FORECLOSURES_ASSETS",
-        "layer": "warehouse",
-        "domain": "Foreclosures",
-        "role": "Fact",
-        "description": "Assets located against foreclosure cases (policies or claims).",
-        "load_job": "2_job-init-database / customer360.seed",
-    },
-    {
-        "table_name": "DWH_FCT_POLICY_INVESTMENT_TRACK",
+        "table_name": "FCT_POLICY_INVESTMENTS",
         "layer": "warehouse",
         "domain": "Investments",
         "role": "Fact (snapshot)",
-        "description": "Monthly policy-level investment accumulation by track and fund.",
+        "description": "Monthly account value by policy and fund.",
         "load_job": "2_job-init-database / customer360.seed",
     },
     {
-        "table_name": "DWH_FCT_INVESTMENT_TRACK",
+        "table_name": "FCT_INVESTMENT_FUNDS",
         "layer": "warehouse",
         "domain": "Market",
         "role": "Reference / market",
-        "description": "Regulatory fund performance (yields, risk metrics) — not customer-specific.",
+        "description": "Fund factsheet yields and assets — not customer-specific.",
         "load_job": "2_job-init-database / customer360.seed",
     },
     {
-        "table_name": "DWH_FCT_POLICY_STATUS",
+        "table_name": "FCT_POLICY_STATUS",
         "layer": "warehouse",
         "domain": "Policy status",
         "role": "Fact (snapshot)",
-        "description": "Periodic policy status, coverage amounts, surrender/savings balances by customer and policy.",
+        "description": "In-force valuation: sum insured, premium, death benefit, surrender and savings.",
         "load_job": "2_job-init-database / customer360.seed",
     },
     {
@@ -159,55 +151,55 @@ TABLE_CATALOG: list[dict] = [
 
 RELATIONSHIPS: list[dict] = [
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
-        "from_column": "CUSTOMER_KEY",
-        "to_table": "DWH_DIM_ALL_POLICY",
-        "to_column": "CUSTOMER_KEY",
+        "from_table": "DIM_CUSTOMERS",
+        "from_column": "CUSTOMER_ID",
+        "to_table": "DIM_POLICIES",
+        "to_column": "CUSTOMER_ID",
         "cardinality": "1:N",
         "label": "owns policies",
     },
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "from_table": "DIM_CUSTOMERS",
         "from_column": "CUSTOMER_ID",
-        "to_table": "DWH_FCT_FORECLOSURES",
+        "to_table": "FCT_POLICY_FORECLOSURES",
         "to_column": "CUSTOMER_ID",
         "cardinality": "1:N",
-        "label": "foreclosure cases",
+        "label": "liens",
     },
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "from_table": "DIM_CUSTOMERS",
         "from_column": "CUSTOMER_ID",
-        "to_table": "DWH_FCT_POLICY_INVESTMENT_TRACK",
+        "to_table": "FCT_POLICY_INVESTMENTS",
         "to_column": "CUSTOMER_ID",
         "cardinality": "1:N",
-        "label": "investment snapshots",
+        "label": "fund holdings",
     },
     {
-        "from_table": "DWH_DIM_ALL_POLICY",
-        "from_column": "POLICY_NUM",
-        "to_table": "DWH_FCT_POLICY_INVESTMENT_TRACK",
-        "to_column": "POLICY_NUM",
+        "from_table": "DIM_POLICIES",
+        "from_column": "POLICY_NUMBER",
+        "to_table": "FCT_POLICY_INVESTMENTS",
+        "to_column": "POLICY_NUMBER",
         "cardinality": "1:N",
-        "label": "track balances",
+        "label": "holdings",
     },
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "from_table": "DIM_CUSTOMERS",
         "from_column": "CUSTOMER_ID",
-        "to_table": "DWH_FCT_POLICY_STATUS",
+        "to_table": "FCT_POLICY_STATUS",
         "to_column": "CUSTOMER_ID",
         "cardinality": "1:N",
-        "label": "policy status snapshots",
+        "label": "valuations",
     },
     {
-        "from_table": "DWH_FCT_FORECLOSURES",
-        "from_column": "SPUROR_NUMBER",
-        "to_table": "DWH_FCT_FORECLOSURES_ASSETS",
-        "to_column": "SPUROR_NUMBER",
+        "from_table": "DIM_POLICIES",
+        "from_column": "POLICY_NUMBER",
+        "to_table": "FCT_POLICY_FORECLOSURES",
+        "to_column": "POLICY_NUMBER",
         "cardinality": "1:N",
-        "label": "linked assets",
+        "label": "lien on policy",
     },
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "from_table": "DIM_CUSTOMERS",
         "from_column": "CUSTOMER_ID",
         "to_table": "APP_CUSTOMER_INTERACTION_EVENTS",
         "to_column": "CUSTOMER_ID",
@@ -215,7 +207,7 @@ RELATIONSHIPS: list[dict] = [
         "label": "interactions",
     },
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "from_table": "DIM_CUSTOMERS",
         "from_column": "CUSTOMER_ID",
         "to_table": "APP_CUSTOMER_CHURN_SCORES",
         "to_column": "CUSTOMER_ID",
@@ -223,27 +215,35 @@ RELATIONSHIPS: list[dict] = [
         "label": "churn score",
     },
     {
-        "from_table": "DWH_DIM_CUSTOMERS_UNIQUE",
+        "from_table": "DIM_CUSTOMERS",
         "from_column": "CUSTOMER_ID",
         "to_table": "APP_CUSTOMER_METRICS",
         "to_column": "CUSTOMER_ID",
         "cardinality": "1:1",
         "label": "list metrics",
     },
+    {
+        "from_table": "FCT_INVESTMENT_FUNDS",
+        "from_column": "FUND_ID",
+        "to_table": "FCT_POLICY_INVESTMENTS",
+        "to_column": "FUND_ID",
+        "cardinality": "1:N",
+        "label": "fund reference",
+    },
 ]
 
 MERMAID_ER = """
 erDiagram
-    DWH_DIM_CUSTOMERS_UNIQUE ||--o{ DWH_DIM_ALL_POLICY : owns
-    DWH_DIM_CUSTOMERS_UNIQUE ||--o{ DWH_FCT_FORECLOSURES : has
-    DWH_FCT_FORECLOSURES ||--o{ DWH_FCT_FORECLOSURES_ASSETS : links
-    DWH_DIM_CUSTOMERS_UNIQUE ||--o{ DWH_FCT_POLICY_INVESTMENT_TRACK : accumulates
-    DWH_DIM_ALL_POLICY ||--o{ DWH_FCT_POLICY_INVESTMENT_TRACK : tracks
-    DWH_DIM_CUSTOMERS_UNIQUE ||--o{ DWH_FCT_POLICY_STATUS : policy_status
-    DWH_DIM_CUSTOMERS_UNIQUE ||--o{ APP_CUSTOMER_INTERACTION_EVENTS : interacts
-    DWH_DIM_CUSTOMERS_UNIQUE ||--|| APP_CUSTOMER_CHURN_SCORES : scored
-    DWH_DIM_CUSTOMERS_UNIQUE ||--|| APP_CUSTOMER_METRICS : metrics
-    DWH_FCT_INVESTMENT_TRACK }o--|| DWH_FCT_POLICY_INVESTMENT_TRACK : fund_ref
+    DIM_CUSTOMERS ||--o{ DIM_POLICIES : owns
+    DIM_CUSTOMERS ||--o{ FCT_POLICY_FORECLOSURES : liens
+    DIM_POLICIES ||--o{ FCT_POLICY_FORECLOSURES : encumbers
+    DIM_CUSTOMERS ||--o{ FCT_POLICY_INVESTMENTS : holds
+    DIM_POLICIES ||--o{ FCT_POLICY_INVESTMENTS : holdings
+    DIM_CUSTOMERS ||--o{ FCT_POLICY_STATUS : valued
+    DIM_CUSTOMERS ||--o{ APP_CUSTOMER_INTERACTION_EVENTS : interacts
+    DIM_CUSTOMERS ||--|| APP_CUSTOMER_CHURN_SCORES : scored
+    DIM_CUSTOMERS ||--|| APP_CUSTOMER_METRICS : metrics
+    FCT_INVESTMENT_FUNDS ||--o{ FCT_POLICY_INVESTMENTS : fund_ref
 """.strip()
 
 
@@ -342,7 +342,7 @@ def _quality_checks(conn: sqlite3.Connection) -> list[dict]:
         )
 
     current = conn.execute(
-        "SELECT COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE WHERE CURRENT_IND = 1"
+        "SELECT COUNT(*) FROM DIM_CUSTOMERS"
     ).fetchone()[0]
     if current == 0:
         add("customers", "Current customers", "critical", "No current customers in dimension.")
@@ -350,8 +350,8 @@ def _quality_checks(conn: sqlite3.Connection) -> list[dict]:
 
     with_email = conn.execute(
         """
-        SELECT COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE
-        WHERE CURRENT_IND = 1 AND EMAIL IS NOT NULL AND TRIM(EMAIL) != ''
+        SELECT COUNT(*) FROM DIM_CUSTOMERS
+        WHERE EMAIL IS NOT NULL AND TRIM(EMAIL) != ''
         """
     ).fetchone()[0]
     email_pct = 100.0 * with_email / current
@@ -365,16 +365,16 @@ def _quality_checks(conn: sqlite3.Connection) -> list[dict]:
 
     with_mobile = conn.execute(
         """
-        SELECT COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE
-        WHERE CURRENT_IND = 1 AND MOBILE_NO IS NOT NULL AND TRIM(MOBILE_NO) != ''
+        SELECT COUNT(*) FROM DIM_CUSTOMERS
+        WHERE PHONE IS NOT NULL AND TRIM(PHONE) != ''
         """
     ).fetchone()[0]
     mobile_pct = 100.0 * with_mobile / current
     add(
         "mobile_coverage",
-        "Mobile populated",
+        "Phone populated",
         "ok" if mobile_pct >= 95 else "warn",
-        f"{mobile_pct:.1f}% of current customers have a mobile number.",
+        f"{mobile_pct:.1f}% of customers have a phone number.",
         metric_value=round(mobile_pct, 1),
     )
 
@@ -411,11 +411,10 @@ def _quality_checks(conn: sqlite3.Connection) -> list[dict]:
     no_policy = conn.execute(
         """
         SELECT COUNT(*)
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
-        WHERE c.CURRENT_IND = 1
-          AND NOT EXISTS (
-            SELECT 1 FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+        FROM DIM_CUSTOMERS c
+        WHERE NOT EXISTS (
+            SELECT 1 FROM DIM_POLICIES p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
           )
         """
     ).fetchone()[0]
@@ -431,28 +430,27 @@ def _quality_checks(conn: sqlite3.Connection) -> list[dict]:
     dup_current = conn.execute(
         """
         SELECT COUNT(*) FROM (
-            SELECT CUSTOMER_ID FROM DWH_DIM_CUSTOMERS_UNIQUE
-            WHERE CURRENT_IND = 1
+            SELECT CUSTOMER_ID FROM DIM_CUSTOMERS
             GROUP BY CUSTOMER_ID HAVING COUNT(*) > 1
         )
         """
     ).fetchone()[0]
     add(
-        "scd_uniqueness",
-        "Single current row per customer ID",
+        "customer_key",
+        "One row per customer ID",
         "ok" if dup_current == 0 else "critical",
-        f"{dup_current} customer IDs with multiple CURRENT_IND=1 rows."
+        f"{dup_current} customer IDs with more than one row."
         if dup_current
-        else "Each customer ID has at most one current dimension row.",
+        else "Each customer ID has one party row.",
     )
 
     orphan_policies = conn.execute(
         """
         SELECT COUNT(*)
-        FROM DWH_DIM_ALL_POLICY p
+        FROM DIM_POLICIES p
         WHERE NOT EXISTS (
-            SELECT 1 FROM DWH_DIM_CUSTOMERS_UNIQUE c
-            WHERE c.CURRENT_IND = 1 AND CAST(c.CUSTOMER_ID AS TEXT) = p.CUSTOMER_ID
+            SELECT 1 FROM DIM_CUSTOMERS c
+            WHERE c.CUSTOMER_ID = p.CUSTOMER_ID
         )
         """
     ).fetchone()[0]
@@ -465,11 +463,11 @@ def _quality_checks(conn: sqlite3.Connection) -> list[dict]:
 
     null_inv = conn.execute(
         """
-        SELECT COUNT(*) FROM DWH_FCT_POLICY_INVESTMENT_TRACK
-        WHERE ACCUMULATION_TOTAL IS NULL OR ACCUMULATION_TOTAL = 0
+        SELECT COUNT(*) FROM FCT_POLICY_INVESTMENTS
+        WHERE ACCOUNT_VALUE IS NULL OR ACCOUNT_VALUE = 0
         """
     ).fetchone()[0]
-    total_inv = conn.execute("SELECT COUNT(*) FROM DWH_FCT_POLICY_INVESTMENT_TRACK").fetchone()[0]
+    total_inv = conn.execute("SELECT COUNT(*) FROM FCT_POLICY_INVESTMENTS").fetchone()[0]
     if total_inv:
         zero_pct = 100.0 * null_inv / total_inv
         add(

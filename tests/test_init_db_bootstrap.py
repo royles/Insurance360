@@ -26,7 +26,7 @@ def test_init_creates_configured_cdsw_path(tmp_path: Path, monkeypatch: pytest.M
     conn = connect(warehouse)
     try:
         count = conn.execute(
-            "SELECT COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE WHERE CURRENT_IND = 1"
+            "SELECT COUNT(*) FROM DIM_CUSTOMERS"
         ).fetchone()[0]
         assert count == 10
     finally:

@@ -10,6 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from customer360.api.deps import get_db
+from customer360.warehouse import (
+    CUSTOMERS,
+    FORECLOSURES,
+    INVESTMENTS,
+    POLICIES,
+    customer_name_expr,
+    in_force_flag_expr,
+)
 from customer360.api.schemas import (
     BedrockStatusResponse,
     ChurnInsight,
@@ -563,20 +571,20 @@ def engagement_hub(
     return EngagementHubResponse(**data)
 
 
-_POLICY_COUNT_SELECT = """
+_POLICY_COUNT_SELECT = f"""
 (
     SELECT COUNT(*)
-    FROM DWH_DIM_ALL_POLICY p
-    WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+    FROM {POLICIES} p
+    WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
 ) AS policy_count
 """.strip()
 
-_INVESTMENT_COUNT_SELECT = """
+_INVESTMENT_COUNT_SELECT = f"""
 (
     SELECT COUNT(*)
     FROM (
-        SELECT DISTINCT pit.POLICY_NUM, pit.INVESTMENT_TRACK_ID
-        FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+        SELECT DISTINCT pit.POLICY_NUMBER, pit.FUND_ID
+        FROM {INVESTMENTS} pit
         WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
     )
 ) AS investment_count
@@ -673,7 +681,7 @@ def products_catalog(
     ),
     city: str | None = Query(
         None,
-        description="Filter to customers in this city (CITY_NAME on customer dimension)",
+        description="Filter to customers in this city (CITY on DIM_CUSTOMERS)",
     ),
 ) -> ProductCatalogResponse:
     return ProductCatalogResponse(
@@ -813,7 +821,7 @@ def list_customers(
     ),
     city: str | None = Query(
         None,
-        description="Filter to customers in this city (matches DWH_DIM_CUSTOMERS_UNIQUE.CITY_NAME)",
+        description="Filter to customers in this city (matches DIM_CUSTOMERS.CITY)",
     ),
     churn_tier: str | None = Query(
         None,
@@ -874,7 +882,7 @@ def list_customers(
     total = conn.execute(
         f"""
         SELECT COUNT(*)
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
+        FROM DIM_CUSTOMERS c
         {churn_join}
         WHERE {where_sql}
         """,
@@ -894,18 +902,18 @@ def list_customers(
     sql = f"""
         SELECT
             c.CUSTOMER_ID AS customer_id,
-            c.CUSTOMER_KEY AS customer_key,
-            c.CUSTOMER_NAME AS customer_name,
-            c.CITY_NAME AS city_name,
+            CAST(c.CUSTOMER_ID AS TEXT) AS customer_key,
+            {customer_name_expr("c")} AS customer_name,
+            c.CITY AS city_name,
             c.EMAIL AS email,
-            c.MOBILE_NO AS mobile_no,
+            c.PHONE AS mobile_no,
             c.LAST_LOGIN AS last_login,
             {policy_count_sql},
             {investment_count_sql},
             {customer_value_sql} AS customer_value,
             {churn_cols},
             {review_cols}
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
+        FROM DIM_CUSTOMERS c
         {metrics_join}
         {churn_join}
         {review_join}
@@ -936,22 +944,22 @@ def customer_detail(
     conn: Annotated[sqlite3.Connection, Depends(get_db)],
 ) -> CustomerDetailResponse:
     profile_row = conn.execute(
-        """
+        f"""
         SELECT
             CUSTOMER_ID AS customer_id,
-            CUSTOMER_KEY AS customer_key,
-            CUSTOMER_NAME AS customer_name,
-            CUSTOMER_TYPE_DSC AS customer_type_dsc,
-            BIRTH_DATE AS birth_date,
-            MARITAL_STATUS_DSC AS marital_status_dsc,
+            CAST(CUSTOMER_ID AS TEXT) AS customer_key,
+            {customer_name_expr("DIM_CUSTOMERS")} AS customer_name,
+            CUSTOMER_TYPE AS customer_type_dsc,
+            NULL AS birth_date,
+            MARITAL_STATUS AS marital_status_dsc,
             EMAIL AS email,
-            MOBILE_NO AS mobile_no,
-            CITY_NAME AS city_name,
-            STREET_NAME AS street_name,
-            COMMUNICATION_DSC AS communication_dsc,
+            PHONE AS mobile_no,
+            CITY AS city_name,
+            NULL AS street_name,
+            NULL AS communication_dsc,
             LAST_LOGIN AS last_login
-        FROM DWH_DIM_CUSTOMERS_UNIQUE
-        WHERE CURRENT_IND = 1 AND CUSTOMER_ID = ?
+        FROM {CUSTOMERS}
+        WHERE CUSTOMER_ID = ?
         """,
         (customer_id,),
     ).fetchone()
@@ -959,37 +967,37 @@ def customer_detail(
         raise HTTPException(status_code=404, detail="Customer not found")
 
     policies = conn.execute(
-        """
+        f"""
         SELECT
-            POLICY_NUM AS policy_num,
-            POLICY_TYPE_DESC AS policy_type_desc,
-            IS_ACTIVE AS is_active,
-            POLICY_STATUS_DESC AS policy_status_desc,
-            BRUTO_MONTHLY_PREMIUM AS bruto_monthly_premium,
-            POLICY_START_DATE AS policy_start_date
-        FROM DWH_DIM_ALL_POLICY
+            POLICY_NUMBER AS policy_num,
+            PRODUCT_NAME AS policy_type_desc,
+            {in_force_flag_expr("DIM_POLICIES")} AS is_active,
+            POLICY_STATUS AS policy_status_desc,
+            GROSS_MONTHLY_PREMIUM AS bruto_monthly_premium,
+            INCEPTION_DATE AS policy_start_date
+        FROM {POLICIES}
         WHERE CUSTOMER_ID = ?
-        ORDER BY IS_ACTIVE DESC, POLICY_NUM
+        ORDER BY is_active DESC, POLICY_NUMBER
         """,
-        (str(customer_id),),
+        (customer_id,),
     ).fetchall()
 
     foreclosures = conn.execute(
-        """
+        f"""
         SELECT
-            FORECLOSURES_NUMBER AS foreclosures_number,
-            FORECLOSURES_AMOUNT AS foreclosures_amount,
-            FORECLOSURES_DATE AS foreclosures_date,
+            FORECLOSURE_NUMBER AS foreclosures_number,
+            FORECLOSURE_AMOUNT AS foreclosures_amount,
+            FORECLOSURE_DATE AS foreclosures_date,
             PORTFOLIO_NUMBER AS portfolio_number
-        FROM DWH_FCT_FORECLOSURES
+        FROM {FORECLOSURES}
         WHERE CUSTOMER_ID = ?
-        ORDER BY FORECLOSURES_DATE DESC
+        ORDER BY FORECLOSURE_DATE DESC
         """,
-        (str(customer_id),),
+        (customer_id,),
     ).fetchall()
 
     investments = conn.execute(
-        """
+        f"""
         SELECT
             policy_num,
             snapshot_date,
@@ -998,16 +1006,16 @@ def customer_detail(
             fund_id
         FROM (
             SELECT
-                POLICY_NUM AS policy_num,
+                POLICY_NUMBER AS policy_num,
                 SNAPSHOT_DATE AS snapshot_date,
-                ACCUMULATION_TOTAL AS accumulation_total,
-                YEARLY_PROFIT_LOSS_TOTAL AS yearly_profit_loss_total,
+                ACCOUNT_VALUE AS accumulation_total,
+                YTD_GAIN_LOSS AS yearly_profit_loss_total,
                 FUND_ID AS fund_id,
                 ROW_NUMBER() OVER (
-                    PARTITION BY POLICY_NUM, INVESTMENT_TRACK_ID
+                    PARTITION BY POLICY_NUMBER, FUND_ID
                     ORDER BY SNAPSHOT_DATE DESC
                 ) AS rn
-            FROM DWH_FCT_POLICY_INVESTMENT_TRACK
+            FROM {INVESTMENTS}
             WHERE CUSTOMER_ID = ?
         ) t
         WHERE rn = 1

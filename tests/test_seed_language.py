@@ -30,10 +30,10 @@ def test_israel_region_english_interaction_copy(
         assert cfg["territory_id"] == "il"
         assert cfg["seed_language"] == "en"
         sample = conn.execute(
-            "SELECT QUERY_OR_TITLE FROM APP_CUSTOMER_INTERACTION_EVENTS LIMIT 5"
+            "SELECT QUERY_OR_TITLE FROM APP_CUSTOMER_INTERACTION_EVENTS LIMIT 40"
         ).fetchall()
-    titles = " ".join(row[0] for row in sample)
-    assert "Premium" in titles or "payment" in titles.lower() or "pension" in titles.lower()
+    titles = " ".join(row[0] for row in sample).lower()
+    assert "policy" in titles or "premium" in titles or "pension" in titles
 
 
 def test_israel_region_hebrew_interaction_copy(

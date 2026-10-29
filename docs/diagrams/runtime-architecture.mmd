@@ -10,8 +10,8 @@ flowchart TB
   end
 
   subgraph Data["Governed demo warehouse (SQLite)"]
-    DIM["DWH_DIM_*<br/>customers, policies"]
-    FCT["DWH_FCT_*<br/>foreclosures, investments, policy status"]
+    DIM["DIM_*<br/>customers, policies"]
+    FCT["FCT_*<br/>foreclosures, investments, policy status"]
     APP["APP_*<br/>interactions, churn scores, metrics caches"]
     J3 --> DIM & FCT & APP
     J4 --> APP

@@ -8,7 +8,7 @@ SortBy = Literal["name", "policy_count", "investment_count", "churn_risk", "cust
 SortOrder = Literal["asc", "desc"]
 
 SORT_SQL: dict[str, str] = {
-    "name": "c.CUSTOMER_NAME",
+    "name": "(c.FIRST_NAME || ' ' || c.SURNAME)",
     "policy_count": "policy_count",
     "investment_count": "investment_count",
     "customer_value": "customer_value",
@@ -45,12 +45,12 @@ def order_clause(sort_by: str, sort_order: str, *, churn_scores_available: bool 
                 f"customer_value {direction}, "
                 "CASE ch.CHURN_RISK_TIER "
                 "WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 ELSE 4 END ASC, "
-                "ch.CHURN_PROBABILITY DESC, c.CUSTOMER_NAME ASC"
+                "ch.CHURN_PROBABILITY DESC, c.SURNAME ASC, c.FIRST_NAME ASC"
             )
-        return f"customer_value {direction}, c.CUSTOMER_NAME ASC"
+        return f"customer_value {direction}, c.SURNAME ASC, c.FIRST_NAME ASC"
 
     if sort_by == "churn_risk":
-        value_tiebreak = "customer_value DESC, c.CUSTOMER_NAME ASC"
+        value_tiebreak = "customer_value DESC, c.SURNAME ASC, c.FIRST_NAME ASC"
         if sort_order == "desc":
             return (
                 "CASE ch.CHURN_RISK_TIER "
@@ -66,4 +66,4 @@ def order_clause(sort_by: str, sort_order: str, *, churn_scores_available: bool 
     direction = "DESC" if sort_order == "desc" else "ASC"
     if sort_by == "name":
         return f"{column} {direction}, c.CUSTOMER_ID ASC"
-    return f"{column} {direction}, c.CUSTOMER_NAME ASC"
+    return f"{column} {direction}, c.SURNAME ASC, c.FIRST_NAME ASC"

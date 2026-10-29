@@ -157,9 +157,9 @@ def fetch_engagement_opportunities(
         )
         SELECT
             c.CUSTOMER_ID AS customer_id,
-            c.CUSTOMER_KEY AS customer_key,
-            c.CUSTOMER_NAME AS customer_name,
-            c.CITY_NAME AS city_name,
+            CAST(c.CUSTOMER_ID AS TEXT) AS customer_key,
+            TRIM(COALESCE(c.FIRST_NAME, '') || ' ' || COALESCE(c.SURNAME, '')) AS customer_name,
+            c.CITY AS city_name,
             {value_expr} AS customer_value,
             {churn_cols},
             COALESCE(i.events_last_90d, 0) AS events_last_90d,
@@ -168,7 +168,7 @@ def fetch_engagement_opportunities(
             COALESCE(i.unresolved_agent_questions, 0) AS unresolved_agent_questions,
             COALESCE(i.days_since_last_interaction, 999) AS days_since_last_interaction,
             i.last_event_ts AS last_event_ts
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
+        FROM DIM_CUSTOMERS c
         {metrics_join}
         {churn_join}
         LEFT JOIN interaction i ON i.customer_id = c.CUSTOMER_ID

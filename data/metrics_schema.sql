@@ -57,12 +57,4 @@ CREATE TABLE IF NOT EXISTS APP_WAREHOUSE_TABLE_MANIFEST (
     SOURCE_JOB      TEXT NOT NULL
 );
 
--- Query paths used heavily at scale
-CREATE INDEX IF NOT EXISTS idx_pit_customer_snapshot
-    ON DWH_FCT_POLICY_INVESTMENT_TRACK (CUSTOMER_ID, SNAPSHOT_DATE);
-
-CREATE INDEX IF NOT EXISTS idx_policy_status_customer_period
-    ON DWH_FCT_POLICY_STATUS (CUSTOMER_ID, SNAPSHOT_DATE);
-
-CREATE INDEX IF NOT EXISTS idx_policy_customer_mng
-    ON DWH_DIM_ALL_POLICY (CUSTOMER_ID, MNG_COMPANY_CODE, IS_ACTIVE);
+-- Warehouse indexes live in data/schema.sql next to the subject tables.

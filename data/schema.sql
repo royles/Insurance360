@@ -1,162 +1,105 @@
--- Insurance Customer 360 — SQLite warehouse schema
+-- Insurance Customer 360 warehouse.
+-- Six subject tables, at most ten columns each.
+-- Names follow common life / savings practice: party, contract, in-force valuation,
+-- policy lien, unit-linked holding, and fund factsheet.
 
 PRAGMA foreign_keys = ON;
 
--- 1. Customer Domain
-CREATE TABLE IF NOT EXISTS DWH_DIM_CUSTOMERS_UNIQUE (
-    CUSTOMER_KEY              TEXT NOT NULL PRIMARY KEY,
-    CUSTOMER_ID               INTEGER NOT NULL,
-    CUSTOMER_TYPE             INTEGER NOT NULL,
-    CUSTOMER_TYPE_DSC         TEXT,
-    FIRST_NAME                TEXT,
-    LAST_NAME                 TEXT,
-    CUSTOMER_NAME             TEXT,
-    GENDER_CODE               INTEGER,
-    BIRTH_DATE                TEXT,
-    MARITAL_STATUS_CODE       TEXT,
-    MARITAL_STATUS_DSC        TEXT,
-    OCCUPATION_CODE           INTEGER,
-    SMOKER_STATUS_CODE        TEXT,
-    EMAIL                     TEXT,
-    MOBILE_NO                 TEXT,
-    CITY_NAME                 TEXT,
-    STREET_NAME               TEXT,
-    HOUSE_NO                  INTEGER,
-    ZIPCODE                   INTEGER,
-    COMMUNICATION_CODE        INTEGER,
-    COMMUNICATION_DSC         TEXT,
-    LAST_LOGIN                TEXT,
-    USER_SITE_REGISTER_STATUS INTEGER,
-    DWH_INSERT_DATE           TEXT NOT NULL,
-    DWH_CLOSE_DATE            TEXT NOT NULL,
-    CURRENT_IND               INTEGER NOT NULL DEFAULT 1
+-- Policyholder. The nine requested party attributes, plus CITY for rating territory.
+CREATE TABLE IF NOT EXISTS DIM_CUSTOMERS (
+    CUSTOMER_ID     INTEGER PRIMARY KEY,
+    CUSTOMER_TYPE   TEXT    NOT NULL, -- Individual | Organization
+    FIRST_NAME      TEXT,
+    SURNAME         TEXT,
+    MARITAL_STATUS  TEXT,             -- Single | Married | Divorced | Widowed
+    OCCUPATION      TEXT,             -- Professional | Clerical | Manual | Self-employed | Retired | Student
+    EMAIL           TEXT,
+    PHONE           TEXT,
+    LAST_LOGIN      TEXT,
+    CITY            TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_customers_customer_id ON DWH_DIM_CUSTOMERS_UNIQUE (CUSTOMER_ID);
-CREATE INDEX IF NOT EXISTS idx_customers_current ON DWH_DIM_CUSTOMERS_UNIQUE (CURRENT_IND);
+CREATE INDEX IF NOT EXISTS idx_customers_city ON DIM_CUSTOMERS (CITY);
 
--- 2. Policy Domain
-CREATE TABLE IF NOT EXISTS DWH_DIM_ALL_POLICY (
-    POLICY_KEY              TEXT NOT NULL PRIMARY KEY,
-    CUSTOMER_ID             TEXT NOT NULL,
-    CUSTOMER_KEY            TEXT NOT NULL,
-    MNG_COMPANY_CODE        INTEGER NOT NULL,
-    COMPANY_CODE            INTEGER NOT NULL,
-    POLICY_NUM              INTEGER NOT NULL,
-    POLICY_TYPE_CODE        INTEGER,
-    POLICY_TYPE_DESC        TEXT,
-    POLICY_START_DATE       TEXT,
-    POLICY_END_DATE         TEXT,
-    IS_ACTIVE               INTEGER NOT NULL,
-    POLICY_STATUS_CODE      INTEGER,
-    POLICY_STATUS_DESC      TEXT,
-    IS_COLECTIVE            INTEGER NOT NULL DEFAULT 0,
-    EMPLOYER_NUM            INTEGER,
-    EMPLOYER_DESC           TEXT,
-    BRUTO_MONTHLY_PREMIUM   REAL,
-    AGENT_NUMBER            INTEGER,
-    DISTRICT_NUM            INTEGER,
-    LIQUIDITY_DATE          TEXT,
-    FOREIGN KEY (CUSTOMER_KEY) REFERENCES DWH_DIM_CUSTOMERS_UNIQUE (CUSTOMER_KEY)
+-- Insurance contract.
+CREATE TABLE IF NOT EXISTS DIM_POLICIES (
+    POLICY_NUMBER          INTEGER PRIMARY KEY,
+    CUSTOMER_ID            INTEGER NOT NULL,
+    PRODUCT_CODE           INTEGER NOT NULL,
+    PRODUCT_NAME           TEXT    NOT NULL,
+    POLICY_STATUS          TEXT    NOT NULL, -- Active | Premium Paying | Paid Up | Lapsed | Surrendered
+    INCEPTION_DATE         TEXT,
+    EXPIRY_DATE            TEXT,
+    GROSS_MONTHLY_PREMIUM  REAL,
+    CONTRACT_TYPE          TEXT    NOT NULL, -- Individual | Group
+    EMPLOYER_NAME          TEXT,
+    FOREIGN KEY (CUSTOMER_ID) REFERENCES DIM_CUSTOMERS (CUSTOMER_ID)
 );
 
-CREATE INDEX IF NOT EXISTS idx_policy_customer_key ON DWH_DIM_ALL_POLICY (CUSTOMER_KEY);
-CREATE INDEX IF NOT EXISTS idx_policy_customer_id ON DWH_DIM_ALL_POLICY (CUSTOMER_ID);
-CREATE INDEX IF NOT EXISTS idx_policy_num ON DWH_DIM_ALL_POLICY (POLICY_NUM);
+CREATE INDEX IF NOT EXISTS idx_policies_customer ON DIM_POLICIES (CUSTOMER_ID);
+CREATE INDEX IF NOT EXISTS idx_policies_product ON DIM_POLICIES (PRODUCT_CODE, POLICY_STATUS);
 
--- 3A. Foreclosures Header
-CREATE TABLE IF NOT EXISTS DWH_FCT_FORECLOSURES (
-    COMPANY_NUMBER        INTEGER NOT NULL,
-    CUSTOMER_ID           TEXT NOT NULL,
-    FORECLOSURES_NUMBER   INTEGER NOT NULL,
-    PORTFOLIO_NUMBER      INTEGER,
-    FORECLOSURES_AMOUNT   REAL,
-    FORECLOSURES_DATE     TEXT,
-    REGIST_DATE           TEXT,
-    RECORD_NUMBER         INTEGER NOT NULL,
-    PRIMARY KEY (COMPANY_NUMBER, FORECLOSURES_NUMBER, RECORD_NUMBER)
-);
-
-CREATE INDEX IF NOT EXISTS idx_foreclosures_customer ON DWH_FCT_FORECLOSURES (CUSTOMER_ID);
-
--- 3B. Foreclosures Assets
-CREATE TABLE IF NOT EXISTS DWH_FCT_FORECLOSURES_ASSETS (
-    RECORD_NUMBER             INTEGER NOT NULL,
-    COMPANY_ID                INTEGER NOT NULL,
-    CUSTOMER_ID               TEXT NOT NULL,
-    IND_EXIST                 TEXT,
-    ASSETS_SOURCE             TEXT,
-    POLICY_OR_CLAIM           TEXT,
-    POLICY_NUM                INTEGER,
-    CLAIM_NUM                 INTEGER,
-    IND_RELAVANT_ASSET        INTEGER,
-    FIRST_DATE_LOCATE_ASSET   TEXT,
-    PRIMARY KEY (RECORD_NUMBER, COMPANY_ID, CUSTOMER_ID, POLICY_NUM, CLAIM_NUM)
-);
-
--- 4. Policy Investment Accumulation
-CREATE TABLE IF NOT EXISTS DWH_FCT_POLICY_INVESTMENT_TRACK (
-    POLICY_KEY                    INTEGER NOT NULL,
-    SNAPSHOT_DATE                 TEXT NOT NULL,
-    MONTH_ID                      INTEGER NOT NULL,
-    COMPANY_CODE                  INTEGER NOT NULL,
-    CUSTOMER_ID                   INTEGER NOT NULL,
-    POLICY_NUM                    INTEGER NOT NULL,
-    INVESTMENT_TRACK_ID           INTEGER NOT NULL,
-    FUND_ID                       INTEGER,
-    ACCUMULATION_REWARDS          REAL,
-    ACCUMULATION_COMPENSATION     REAL,
-    ACCUMULATION_TOTAL            REAL,
-    YEARLY_PROFIT_LOSS_REWARDS    REAL,
-    YEARLY_PROFIT_LOSS_TOTAL      REAL,
-    PRIMARY KEY (POLICY_KEY, SNAPSHOT_DATE, INVESTMENT_TRACK_ID)
-);
-
-CREATE INDEX IF NOT EXISTS idx_pit_customer_policy ON DWH_FCT_POLICY_INVESTMENT_TRACK (CUSTOMER_ID, POLICY_NUM);
-
--- 5. Regulatory Market Investment Tracks
-CREATE TABLE IF NOT EXISTS DWH_FCT_INVESTMENT_TRACK (
-    MONTH_ID                        INTEGER NOT NULL,
-    SNAPSHOT_DATE                   TEXT NOT NULL,
-    MNG_COMPANY_CODE                INTEGER NOT NULL,
-    PRODUCT_TYPE_CODE               INTEGER,
-    FUND_ID                         INTEGER NOT NULL,
-    FUND_NAME                       TEXT,
-    MANAGING_CORPORATION_LEGAL_ID   INTEGER,
-    MANAGING_CORPORATION            TEXT,
-    MONTHLY_YIELD                   REAL,
-    YEAR_TO_DATE_YIELD              REAL,
-    YIELD_TRAILING_3_YRS            REAL,
-    YIELD_TRAILING_5_YRS            REAL,
-    ALPHA                           REAL,
-    SHARPE_RATIO                    REAL,
-    LIQUID_ASSETS_PERCENT           REAL,
-    STOCK_MARKET_EXPOSURE           REAL,
-    TOTAL_ASSETS                    REAL,
-    PRIMARY KEY (MONTH_ID, MNG_COMPANY_CODE, FUND_ID)
-);
-
--- 6. Policy status & coverage snapshots (periodic fact)
-CREATE TABLE IF NOT EXISTS DWH_FCT_POLICY_STATUS (
-    COMPANY_CODE                INTEGER NOT NULL,
-    SNAPSHOT_DATE               TEXT NOT NULL,
-    CUSTOMER_ID                 INTEGER NOT NULL,
-    POLICY_NUM                  INTEGER NOT NULL,
-    POLICY_STATUS_CODE          INTEGER,
-    POLICY_STATUS_DESC          TEXT,
-    SUM_INSURED_AMOUNT          REAL,
-    MONTHLY_PREMIUM             REAL,
-    DEATH_BENEFIT_AMOUNT        REAL,
-    SURRENDER_VALUE             REAL,
-    PAID_UP_VALUE               REAL,
-    SAVINGS_BALANCE             REAL,
-    PREMIUM_MANAGEMENT_FEE      REAL,
-    SAVINGS_MANAGEMENT_FEE      REAL,
-    EMPLOYER_BENEFIT_AMOUNT     REAL,
-    PRIMARY KEY (COMPANY_CODE, SNAPSHOT_DATE, CUSTOMER_ID, POLICY_NUM)
+-- In-force valuation snapshot (life and health).
+CREATE TABLE IF NOT EXISTS FCT_POLICY_STATUS (
+    CUSTOMER_ID             INTEGER NOT NULL,
+    POLICY_NUMBER           INTEGER NOT NULL,
+    SNAPSHOT_DATE           TEXT    NOT NULL,
+    POLICY_STATUS           TEXT,
+    SUM_INSURED             REAL,
+    GROSS_MONTHLY_PREMIUM   REAL,
+    DEATH_BENEFIT           REAL,
+    SURRENDER_VALUE         REAL,
+    SAVINGS_BALANCE         REAL,
+    PAID_UP_VALUE           REAL,
+    PRIMARY KEY (CUSTOMER_ID, POLICY_NUMBER, SNAPSHOT_DATE),
+    FOREIGN KEY (POLICY_NUMBER) REFERENCES DIM_POLICIES (POLICY_NUMBER)
 );
 
 CREATE INDEX IF NOT EXISTS idx_policy_status_customer
-    ON DWH_FCT_POLICY_STATUS (CUSTOMER_ID);
-CREATE INDEX IF NOT EXISTS idx_policy_status_customer_date
-    ON DWH_FCT_POLICY_STATUS (CUSTOMER_ID, SNAPSHOT_DATE);
+    ON FCT_POLICY_STATUS (CUSTOMER_ID, SNAPSHOT_DATE);
+
+-- Lien / encumbrance registered against a policy.
+CREATE TABLE IF NOT EXISTS FCT_POLICY_FORECLOSURES (
+    FORECLOSURE_NUMBER   INTEGER PRIMARY KEY,
+    CUSTOMER_ID          INTEGER NOT NULL,
+    POLICY_NUMBER        INTEGER,
+    FORECLOSURE_AMOUNT   REAL,
+    FORECLOSURE_DATE     TEXT,
+    REGISTERED_DATE      TEXT,
+    PORTFOLIO_NUMBER     INTEGER,
+    FOREIGN KEY (CUSTOMER_ID) REFERENCES DIM_CUSTOMERS (CUSTOMER_ID),
+    FOREIGN KEY (POLICY_NUMBER) REFERENCES DIM_POLICIES (POLICY_NUMBER)
+);
+
+CREATE INDEX IF NOT EXISTS idx_foreclosures_customer
+    ON FCT_POLICY_FORECLOSURES (CUSTOMER_ID);
+
+-- Unit-linked or pension holding on a policy, one row per fund per month.
+CREATE TABLE IF NOT EXISTS FCT_POLICY_INVESTMENTS (
+    CUSTOMER_ID      INTEGER NOT NULL,
+    POLICY_NUMBER    INTEGER NOT NULL,
+    FUND_ID          INTEGER NOT NULL,
+    SNAPSHOT_DATE    TEXT    NOT NULL,
+    ACCOUNT_VALUE    REAL,
+    YTD_GAIN_LOSS    REAL,
+    PRIMARY KEY (POLICY_NUMBER, FUND_ID, SNAPSHOT_DATE),
+    FOREIGN KEY (POLICY_NUMBER) REFERENCES DIM_POLICIES (POLICY_NUMBER)
+);
+
+CREATE INDEX IF NOT EXISTS idx_investments_customer
+    ON FCT_POLICY_INVESTMENTS (CUSTOMER_ID, SNAPSHOT_DATE);
+
+-- Fund factsheet. Not customer-specific.
+CREATE TABLE IF NOT EXISTS FCT_INVESTMENT_FUNDS (
+    FUND_ID         INTEGER NOT NULL,
+    FUND_NAME       TEXT,
+    SNAPSHOT_DATE   TEXT    NOT NULL,
+    PRODUCT_LINE    TEXT,             -- Life | Pension | Provident
+    MONTHLY_YIELD   REAL,
+    YTD_YIELD       REAL,
+    YIELD_3Y        REAL,
+    YIELD_5Y        REAL,
+    SHARPE_RATIO    REAL,
+    TOTAL_ASSETS    REAL,
+    PRIMARY KEY (FUND_ID, SNAPSHOT_DATE)
+);

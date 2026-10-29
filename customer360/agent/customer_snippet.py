@@ -10,21 +10,22 @@ from customer360.api.sorting import normalize_sort_by, normalize_sort_order, ord
 from customer360.api.value_history import CUSTOMER_VALUE_SQL
 from customer360.api.metrics_cache import customer_metrics_populated
 from customer360.territory_formatting import format_territory_money
+from customer360.warehouse import INVESTMENTS, POLICIES, customer_name_expr
 
-_POLICY_COUNT_SELECT = """
+_POLICY_COUNT_SELECT = f"""
 (
     SELECT COUNT(*)
-    FROM DWH_DIM_ALL_POLICY p
-    WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+    FROM {POLICIES} p
+    WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
 ) AS policy_count
 """.strip()
 
-_INVESTMENT_COUNT_SELECT = """
+_INVESTMENT_COUNT_SELECT = f"""
 (
     SELECT COUNT(*)
     FROM (
-        SELECT DISTINCT pit.POLICY_NUM, pit.INVESTMENT_TRACK_ID
-        FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+        SELECT DISTINCT pit.POLICY_NUMBER, pit.FUND_ID
+        FROM {INVESTMENTS} pit
         WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
     )
 ) AS investment_count
@@ -77,12 +78,12 @@ def top_customers_snippet(
     rows = conn.execute(
         f"""
         SELECT
-            c.CUSTOMER_NAME AS customer_name,
-            c.CITY_NAME AS city_name,
+            {customer_name_expr("c")} AS customer_name,
+            c.CITY AS city_name,
             {policy_count_sql},
             {investment_count_sql},
             {value_sql} AS customer_value
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
+        FROM DIM_CUSTOMERS c
         {metrics_join}
         {churn_join}
         WHERE {where_sql}

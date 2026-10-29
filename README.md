@@ -111,12 +111,12 @@ generation is unavailable.
 
 | Table                                                  | Domain                                                   |
 | ------------------------------------------------------ | -------------------------------------------------------- |
-| `DWH_DIM_CUSTOMERS_UNIQUE`                             | Master customer dimension (MDM / portal)                 |
-| `DWH_DIM_ALL_POLICY`                                   | Life, health, elementary, pension, and gemel policies    |
-| `DWH_FCT_FORECLOSURES` / `DWH_FCT_FORECLOSURES_ASSETS` | Legal encumbrances and linked assets                     |
-| `DWH_FCT_POLICY_INVESTMENT_TRACK`                      | Monthly per-policy accumulation by track                 |
-| `DWH_FCT_INVESTMENT_TRACK`                             | Regulatory market track performance                      |
-| `DWH_FCT_POLICY_STATUS`                                | Policy status, coverage, and surrender/savings snapshots |
+| `DIM_CUSTOMERS`                                        | Policyholder party (identity, contact, city, login)      |
+| `DIM_POLICIES`                                         | Life, health, property, pension, and savings contracts   |
+| `FCT_POLICY_FORECLOSURES`                              | Liens registered against a policy                        |
+| `FCT_POLICY_INVESTMENTS`                               | Monthly account value by policy and fund                 |
+| `FCT_INVESTMENT_FUNDS`                                 | Fund factsheet yields and assets                         |
+| `FCT_POLICY_STATUS`                                    | In-force valuation: sum insured, surrender, savings      |
 | `APP_CUSTOMER_CHURN_SCORES`                            | Churn probability and risk tier per customer ID          |
 | `APP_CUSTOMER_INTERACTION_EVENTS`                      | Synthetic reviews, agent questions, and web searches     |
 | `APP_CUSTOMER_AI_INSIGHTS`                             | Cached Bedrock (or fallback) customer summaries          |

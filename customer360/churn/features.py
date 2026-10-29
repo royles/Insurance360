@@ -9,6 +9,14 @@ import numpy as np
 import pandas as pd
 
 from customer360.interactions.summary import REFERENCE_DATE, interactions_table_exists
+from customer360.warehouse import (
+    CUSTOMERS,
+    FORECLOSURES,
+    INVESTMENTS,
+    POLICIES,
+    active_policy_predicate,
+    policy_status_code_expr,
+)
 
 FEATURE_COLUMNS = [
     "policy_count",
@@ -73,101 +81,93 @@ def _parse_date(value: object) -> datetime | None:
 
 
 def load_customer_frame(conn: sqlite3.Connection) -> pd.DataFrame:
-    sql = """
+    active = active_policy_predicate("p")
+    status_code = policy_status_code_expr("p")
+    sql = f"""
     SELECT
         c.CUSTOMER_ID AS customer_id,
         c.LAST_LOGIN AS last_login,
-        c.USER_SITE_REGISTER_STATUS AS portal_registered,
-        c.COMMUNICATION_CODE AS communication_code,
-        c.SMOKER_STATUS_CODE AS smoker_status_code,
-        c.BIRTH_DATE AS birth_date,
+        CASE WHEN c.LAST_LOGIN IS NOT NULL THEN 1 ELSE 0 END AS portal_registered,
         (
             SELECT COUNT(*)
-            FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+            FROM {POLICIES} p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
         ) AS policy_count,
         (
             SELECT COUNT(*)
-            FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT) AND p.IS_ACTIVE = 1
+            FROM {POLICIES} p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID AND {active}
         ) AS active_policy_count,
         (
             SELECT COUNT(*)
-            FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT) AND p.IS_ACTIVE = 0
+            FROM {POLICIES} p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID AND NOT ({active})
         ) AS inactive_policy_count,
         (
-            SELECT COALESCE(SUM(p.BRUTO_MONTHLY_PREMIUM), 0)
-            FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT) AND p.IS_ACTIVE = 1
+            SELECT COALESCE(SUM(p.GROSS_MONTHLY_PREMIUM), 0)
+            FROM {POLICIES} p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID AND {active}
         ) AS total_monthly_premium,
         (
-            SELECT COALESCE(AVG(p.POLICY_STATUS_CODE), 0)
-            FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+            SELECT COALESCE(AVG({status_code}), 0)
+            FROM {POLICIES} p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
         ) AS avg_policy_status_code,
         (
             SELECT COUNT(*)
             FROM (
-                SELECT DISTINCT pit.POLICY_NUM, pit.INVESTMENT_TRACK_ID
-                FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+                SELECT DISTINCT pit.POLICY_NUMBER, pit.FUND_ID
+                FROM {INVESTMENTS} pit
                 WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
             )
         ) AS investment_track_count,
         (
-            SELECT COALESCE(SUM(latest.ACCUMULATION_TOTAL), 0)
+            SELECT COALESCE(SUM(latest.ACCOUNT_VALUE), 0)
             FROM (
-                SELECT pit.ACCUMULATION_TOTAL,
+                SELECT pit.ACCOUNT_VALUE,
                        ROW_NUMBER() OVER (
-                           PARTITION BY pit.POLICY_NUM, pit.INVESTMENT_TRACK_ID
+                           PARTITION BY pit.POLICY_NUMBER, pit.FUND_ID
                            ORDER BY pit.SNAPSHOT_DATE DESC
                        ) AS rn
-                FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+                FROM {INVESTMENTS} pit
                 WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
             ) latest
             WHERE latest.rn = 1
         ) AS total_accumulation,
         (
             SELECT COUNT(*)
-            FROM DWH_FCT_FORECLOSURES f
-            WHERE f.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+            FROM {FORECLOSURES} f
+            WHERE f.CUSTOMER_ID = c.CUSTOMER_ID
         ) AS foreclosure_count,
         (
-            SELECT COALESCE(SUM(f.FORECLOSURES_AMOUNT), 0)
-            FROM DWH_FCT_FORECLOSURES f
-            WHERE f.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+            SELECT COALESCE(SUM(f.FORECLOSURE_AMOUNT), 0)
+            FROM {FORECLOSURES} f
+            WHERE f.CUSTOMER_ID = c.CUSTOMER_ID
         ) AS foreclosure_amount,
         (
             SELECT COUNT(*)
-            FROM DWH_DIM_ALL_POLICY p
-            WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT) AND p.IS_COLECTIVE = 1
+            FROM {POLICIES} p
+            WHERE p.CUSTOMER_ID = c.CUSTOMER_ID AND p.CONTRACT_TYPE = 'Group'
         ) AS collective_policy_count
-    FROM DWH_DIM_CUSTOMERS_UNIQUE c
-    WHERE c.CURRENT_IND = 1
+    FROM {CUSTOMERS} c
     """
     df = pd.read_sql_query(sql, conn)
     df["has_foreclosure"] = (df["foreclosure_count"] > 0).astype(int)
     df.drop(columns=["foreclosure_count"], inplace=True)
 
     days: list[float] = []
-    ages: list[float] = []
     for _, row in df.iterrows():
         login_dt = _parse_date(row["last_login"])
         if login_dt:
             days.append(max(0.0, (REFERENCE_DATE - login_dt).days))
         else:
             days.append(999.0)
-        birth_dt = _parse_date(row["birth_date"])
-        if birth_dt:
-            ages.append(max(18.0, (REFERENCE_DATE - birth_dt).days / 365.25))
-        else:
-            ages.append(45.0)
     df["days_since_last_login"] = days
-    df["customer_age_years"] = ages
+    df["customer_age_years"] = 45.0
     df["portal_registered"] = df["portal_registered"].fillna(0).astype(int)
-    df["communication_code"] = df["communication_code"].fillna(0).astype(float)
-    df["smoker_flag"] = (df["smoker_status_code"].astype(str) == "1").astype(int)
-    df.drop(columns=["smoker_status_code", "birth_date", "last_login"], inplace=True)
+    df["communication_code"] = 0.0
+    df["smoker_flag"] = 0
+    df.drop(columns=["last_login"], inplace=True)
 
     df = _append_interaction_features(conn, df)
 

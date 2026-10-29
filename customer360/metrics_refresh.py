@@ -11,15 +11,16 @@ from customer360.api.segments import OVERVIEW_DOMAINS, SEGMENT_WHERE
 from customer360.api.value_history import CUSTOMER_VALUE_SQL
 from customer360.api.metrics_cache import customer_metrics_populated
 from customer360.paths import project_root
+from customer360.warehouse import CUSTOMERS, INVESTMENTS, POLICIES
 
 METRICS_SCHEMA = project_root() / "data" / "metrics_schema.sql"
 
-INVESTMENT_TRACK_COUNT_SQL = """
+INVESTMENT_TRACK_COUNT_SQL = f"""
 (
     SELECT COUNT(*)
     FROM (
-        SELECT DISTINCT pit.POLICY_NUM, pit.INVESTMENT_TRACK_ID
-        FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+        SELECT DISTINCT pit.POLICY_NUMBER, pit.FUND_ID
+        FROM {INVESTMENTS} pit
         WHERE pit.CUSTOMER_ID = c.CUSTOMER_ID
     )
 )
@@ -84,14 +85,13 @@ def refresh_customer_metrics(conn: sqlite3.Connection) -> int:
             c.CUSTOMER_ID,
             (
                 SELECT COUNT(*)
-                FROM DWH_DIM_ALL_POLICY p
-                WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+                FROM {POLICIES} p
+                WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
             ),
             {INVESTMENT_TRACK_COUNT_SQL},
             ROUND({CUSTOMER_VALUE_SQL}, 2),
             ?
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
-        WHERE c.CURRENT_IND = 1
+        FROM {CUSTOMERS} c
         """,
         (refreshed_at,),
     )

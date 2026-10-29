@@ -87,8 +87,9 @@ def build_action_draft(
         }
 
     email_row = conn.execute(
-        "SELECT CUSTOMER_NAME, EMAIL, MOBILE_NO FROM DWH_DIM_CUSTOMERS_UNIQUE "
-        "WHERE CURRENT_IND = 1 AND CUSTOMER_ID = ?",
+        "SELECT TRIM(COALESCE(FIRST_NAME, '') || ' ' || COALESCE(SURNAME, '')) AS CUSTOMER_NAME, "
+        "EMAIL, PHONE AS MOBILE_NO FROM DIM_CUSTOMERS "
+        "WHERE CUSTOMER_ID = ?",
         (customer_id,),
     ).fetchone()
     name = ctx.payload.get("customer_name") or "Customer"

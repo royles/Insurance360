@@ -37,7 +37,7 @@ def _review_kpis_for_segment(conn: sqlite3.Connection, segment: str | None) -> d
             ROUND(AVG(e.RATING), 2) AS avg_review_rating,
             COUNT(*) AS review_count
         FROM APP_CUSTOMER_INTERACTION_EVENTS e
-        INNER JOIN DWH_DIM_CUSTOMERS_UNIQUE c ON c.CUSTOMER_ID = e.CUSTOMER_ID
+        INNER JOIN DIM_CUSTOMERS c ON c.CUSTOMER_ID = e.CUSTOMER_ID
         WHERE {where_sql}
           AND e.EVENT_TYPE = 'REVIEW'
           AND e.RATING IS NOT NULL
@@ -116,7 +116,7 @@ def _fetch_kpis(conn: sqlite3.Connection, segment: str | None) -> dict:
                 c.CUSTOMER_ID,
                 m.CUSTOMER_VALUE AS customer_value,
                 m.POLICY_COUNT AS policy_count
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             INNER JOIN APP_CUSTOMER_METRICS m ON m.CUSTOMER_ID = c.CUSTOMER_ID
             WHERE {where_sql}
         """
@@ -127,10 +127,10 @@ def _fetch_kpis(conn: sqlite3.Connection, segment: str | None) -> dict:
                 ROUND({CUSTOMER_VALUE_SQL}, 2) AS customer_value,
                 (
                     SELECT COUNT(*)
-                    FROM DWH_DIM_ALL_POLICY p
-                    WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
+                    FROM DIM_POLICIES p
+                    WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
                 ) AS policy_count
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             WHERE {where_sql}
         """
 

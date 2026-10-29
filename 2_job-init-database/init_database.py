@@ -1,4 +1,4 @@
-"""CAI job: build the SQLite Customer 360 warehouse from DDS-aligned schema."""
+"""CAI job: build the SQLite Customer 360 warehouse from the slim insurance schema."""
 
 from __future__ import annotations
 

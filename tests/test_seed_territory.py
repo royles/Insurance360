@@ -42,7 +42,7 @@ def test_seed_territory_profiles(
         assert cfg["currency"] == get_territory(territory_id).default_currency
 
         row = conn.execute(
-            "SELECT CITY_NAME, EMAIL FROM DWH_DIM_CUSTOMERS_UNIQUE WHERE CURRENT_IND = 1 LIMIT 1"
+            "SELECT CITY, EMAIL FROM DIM_CUSTOMERS LIMIT 1"
         ).fetchone()
         assert row is not None
         assert row[0] in get_territory(territory_id).canonical_cities()

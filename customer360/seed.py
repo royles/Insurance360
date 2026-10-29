@@ -27,16 +27,11 @@ from customer360.seed_material import resolve_seed_material
 from customer360.territory import get_territory, resolve_territory_id
 from customer360.territory.languages import resolve_seed_language
 from customer360.territory_store import write_territory_config
+from customer360.warehouse import ACTIVE_POLICY_STATUSES
 
 INTERACTIONS_SCHEMA = project_root() / "data" / "interactions_schema.sql"
 
 RNG = random.Random(36085)
-
-COMM_MAP = {
-    1: "Email",
-    2: "Mail",
-    6: "SMS",
-}
 
 POLICY_TYPES = [
     (101, "Life Insurance"),
@@ -48,16 +43,44 @@ POLICY_TYPES = [
     (403, "Study Fund"),
 ]
 
-POLICY_STATUS_ACTIVE = [
-    (10, "Active"),
-    (20, "Premium Paying"),
-    (45, "Paid Up"),
-]
-POLICY_STATUS_INACTIVE = [
-    (55, "Lapsed"),
-    (60, "Surrendered"),
-]
+POLICY_STATUS_ACTIVE = ("Active", "Premium Paying", "Paid Up")
+POLICY_STATUS_INACTIVE = ("Lapsed", "Surrendered")
 POLICY_STATUS = POLICY_STATUS_ACTIVE + POLICY_STATUS_INACTIVE
+
+OCCUPATIONS = (
+    "Professional",
+    "Clerical",
+    "Manual",
+    "Self-employed",
+    "Retired",
+    "Student",
+)
+
+CUSTOMER_COLUMNS = (
+    "CUSTOMER_ID",
+    "CUSTOMER_TYPE",
+    "FIRST_NAME",
+    "SURNAME",
+    "MARITAL_STATUS",
+    "OCCUPATION",
+    "EMAIL",
+    "PHONE",
+    "LAST_LOGIN",
+    "CITY",
+)
+
+POLICY_COLUMNS = (
+    "POLICY_NUMBER",
+    "CUSTOMER_ID",
+    "PRODUCT_CODE",
+    "PRODUCT_NAME",
+    "POLICY_STATUS",
+    "INCEPTION_DATE",
+    "EXPIRY_DATE",
+    "GROSS_MONTHLY_PREMIUM",
+    "CONTRACT_TYPE",
+    "EMPLOYER_NAME",
+)
 
 # Portfolio mix: ~72% engaged, ~20% stable/watch, ~8% at-risk (industry-like spread).
 SEGMENT_WEIGHTS = ("engaged", 0.72), ("stable", 0.20), ("at_risk", 0.08)
@@ -156,8 +179,24 @@ def _policy_types_for_mix(product_mix: str, n_policies: int) -> list[int]:
     return types
 
 
+def _rows_for_columns(rows: list[dict], columns: tuple[str, ...]) -> list[dict]:
+    return [{col: row.get(col) for col in columns} for row in rows]
+
+
 def _customer_rows_for_db(customers: list[dict]) -> list[dict]:
-    return [{k: v for k, v in row.items() if not str(k).startswith("_")} for row in customers]
+    return _rows_for_columns(customers, CUSTOMER_COLUMNS)
+
+
+def _policy_rows_for_db(policies: list[dict]) -> list[dict]:
+    return _rows_for_columns(policies, POLICY_COLUMNS)
+
+
+def _fund_company(product_code: int) -> int:
+    return {101: 1, 102: 1, 201: 1, 301: 9, 401: 7, 402: 8, 403: 8}[product_code]
+
+
+def _in_force(status: str) -> bool:
+    return status in ACTIVE_POLICY_STATUSES
 
 def iso(d: date | datetime) -> str:
     if isinstance(d, datetime):
@@ -167,10 +206,6 @@ def iso(d: date | datetime) -> str:
 
 def last_day_of_month(year: int, month: int) -> date:
     return date(year, month, calendar.monthrange(year, month)[1])
-
-
-def month_id(d: date) -> int:
-    return d.year * 100 + d.month
 
 
 # Book analytics window: ~5 years of monthly snapshots (Jan 2021 → Sep 2025).
@@ -196,7 +231,7 @@ def iter_history_months(
 
 
 def parse_policy_start(pol: dict) -> date:
-    raw = str(pol.get("POLICY_START_DATE") or "")[:10]
+    raw = str(pol.get("INCEPTION_DATE") or "")[:10]
     y, m, d = (int(raw[0:4]), int(raw[5:7]), int(raw[8:10])) if len(raw) >= 10 else (2021, 1, 1)
     return date(y, m, min(d, last_day_of_month(y, m).day))
 
@@ -226,19 +261,13 @@ def build_customers(n: int = DEFAULT_SEED_CUSTOMERS) -> list[dict]:
         used_ids.add(cid)
 
         corp_slots = max(2, n // 200)
-        ctype = 1 if i < n - corp_slots else RNG.choice([2, 5])
+        customer_type = (
+            "Individual" if i < n - corp_slots else RNG.choice(["Individual", "Organization"])
+        )
         first = first_names[i % len(first_names)]
         last = last_names[(i // len(first_names)) % len(last_names)]
-        city, street, zipcode = cities[i % len(cities)]
+        city, _street, _zipcode = cities[i % len(cities)]
         marital_code = RNG.choice(list(material.marital_map.keys()))
-        comm = RNG.choice([1, 2, 6])
-        smoker = RNG.choice(["0", "1"])
-        if territory.use_mobile_kosher_flag:
-            kosher = "KOSHER_MOBILE" if RNG.random() < 0.15 else "NO"
-        else:
-            kosher = "NO"
-        birth = date(RNG.randint(1955, 2000), RNG.randint(1, 12), RNG.randint(1, 28))
-        gender = RNG.choice([1, 2])
         prefix = RNG.choice(territory.mobile_prefixes)
         mobile = f"{prefix}-{RNG.randint(1000000, 9999999)}"
         email = f"{first.lower()}.{last.lower()}{i}@{territory.email_domain}"
@@ -261,70 +290,41 @@ def build_customers(n: int = DEFAULT_SEED_CUSTOMERS) -> list[dict]:
             )
 
         product_mix = _assign_product_mix()
-        key = f"CK-{cid}"
         rows.append(
             {
                 "_segment": segment,
                 "_product_mix": product_mix,
                 "_investment_affinity": round(RNG.uniform(0.35, 1.15), 4),
                 "_coverage_affinity": round(RNG.uniform(0.35, 1.15), 4),
-                "CUSTOMER_KEY": key,
+                "_registered": registered,
                 "CUSTOMER_ID": cid,
-                "CUSTOMER_TYPE": ctype,
-                "CUSTOMER_TYPE_DSC": material.customer_type_map[ctype],
+                "CUSTOMER_TYPE": customer_type,
                 "FIRST_NAME": first,
-                "LAST_NAME": last,
-                "CUSTOMER_NAME": f"{first} {last}",
-                "GENDER_CODE": gender,
-                "BIRTH_DATE": iso(birth),
-                "MARITAL_STATUS_CODE": marital_code,
-                "MARITAL_STATUS_DSC": material.marital_map[marital_code],
-                "OCCUPATION_CODE": RNG.randint(100, 999),
-                "SMOKER_STATUS_CODE": smoker,
+                "SURNAME": last,
+                "MARITAL_STATUS": material.marital_map[marital_code],
+                "OCCUPATION": None if customer_type == "Organization" else RNG.choice(OCCUPATIONS),
                 "EMAIL": email,
-                "MOBILE_NO": mobile,
-                "IS_MOBILE_KOSHER": kosher,
-                "CITY_NAME": city,
-                "STREET_NAME": street,
-                "HOUSE_NO": RNG.randint(1, 120),
-                "ZIPCODE": zipcode,
-                "COMMUNICATION_CODE": comm,
-                "COMMUNICATION_DSC": COMM_MAP[comm],
+                "PHONE": mobile,
                 "LAST_LOGIN": iso(last_login) if last_login else None,
-                "USER_SITE_REGISTER_STATUS": registered,
-                "DWH_INSERT_DATE": iso(now - timedelta(days=RNG.randint(30, 800))),
-                "DWH_CLOSE_DATE": "2999-12-31",
-                "CURRENT_IND": 1,
+                "CITY": city,
             }
         )
-
-    # SCD Type 2 history row for first customer
-    hist = dict(rows[0])
-    hist["CUSTOMER_KEY"] = f"{rows[0]['CUSTOMER_KEY']}-HIST"
-    hist["EMAIL"] = f"old.email@{territory.email_domain}"
-    hist["DWH_CLOSE_DATE"] = "2024-06-30"
-    hist["CURRENT_IND"] = 0
-    rows.append(hist)
 
     return rows
 
 
-def _pick_policy_status(segment: str, *, allow_inactive: bool) -> tuple[int, str, int]:
+def _pick_policy_status(segment: str, *, allow_inactive: bool) -> str:
     if segment == "engaged":
-        status_code, status_desc = RNG.choice(POLICY_STATUS_ACTIVE)
-        return status_code, status_desc, 1
+        return RNG.choice(POLICY_STATUS_ACTIVE)
     if segment == "at_risk" and (allow_inactive or RNG.random() < 0.55):
-        status_code, status_desc = RNG.choice(POLICY_STATUS_INACTIVE)
-        return status_code, status_desc, 0
+        return RNG.choice(POLICY_STATUS_INACTIVE)
     if segment == "stable" and allow_inactive and RNG.random() < 0.35:
-        status_code, status_desc = RNG.choice(POLICY_STATUS_INACTIVE)
-        return status_code, status_desc, 0
-    status_code, status_desc = RNG.choices(
+        return RNG.choice(POLICY_STATUS_INACTIVE)
+    return RNG.choices(
         POLICY_STATUS_ACTIVE,
         weights=[45, 40, 15],
         k=1,
     )[0]
-    return status_code, status_desc, 1
 
 
 def build_policies(customers: list[dict]) -> list[dict]:
@@ -332,7 +332,7 @@ def build_policies(customers: list[dict]) -> list[dict]:
     rows: list[dict] = []
     policy_seq = 100000
 
-    active_customers = [c for c in customers if c["CURRENT_IND"] == 1]
+    active_customers = list(customers)
     history_months = iter_history_months()
     max_start_idx = max(0, len(history_months) - 1)
 
@@ -359,16 +359,14 @@ def build_policies(customers: list[dict]) -> list[dict]:
             policy_seq += 1
             ptype_code = type_codes[policy_idx] if policy_idx < len(type_codes) else type_codes[-1]
             ptype_desc = type_by_code.get(ptype_code, POLICY_TYPES[0][1])
-            mng = {101: 1, 102: 1, 201: 1, 301: 9, 401: 7, 402: 8, 403: 8}[ptype_code]
             allow_inactive = policy_idx > 0 or segment != "engaged"
-            status_code, status_desc, is_active = _pick_policy_status(
-                segment, allow_inactive=allow_inactive
-            )
+            status_desc = _pick_policy_status(segment, allow_inactive=allow_inactive)
+            is_active = _in_force(status_desc)
             if is_active:
                 has_active = True
             elif policy_idx == n_policies - 1 and not has_active and segment != "at_risk":
-                status_code, status_desc = RNG.choice(POLICY_STATUS_ACTIVE)
-                is_active = 1
+                status_desc = RNG.choice(POLICY_STATUS_ACTIVE)
+                is_active = True
                 has_active = True
             if policy_idx == 0:
                 start_idx = RNG.randint(0, max_start_idx)
@@ -393,37 +391,22 @@ def build_policies(customers: list[dict]) -> list[dict]:
                     ),
                 )
             )
-            collective = 1 if ptype_code in (401, 402) and RNG.random() < 0.4 else 0
-            employer_num, employer_desc = (None, None)
-            if collective:
-                employer_num, employer_desc = RNG.choice(employers)
+            group_contract = ptype_code in (401, 402) and RNG.random() < 0.4
+            employer_name = RNG.choice(employers)[1] if group_contract else None
             premium = round(RNG.uniform(150, 4500), 2) if ptype_code != 301 else round(RNG.uniform(80, 600), 2)
-            liquidity = None
-            if mng in (7, 8):
-                liquidity = iso(start + timedelta(days=RNG.randint(365 * 3, 365 * 10)))
 
             rows.append(
                 {
-                    "POLICY_KEY": f"{mng}-{policy_seq}",
-                    "CUSTOMER_ID": str(cust["CUSTOMER_ID"]),
-                    "CUSTOMER_KEY": cust["CUSTOMER_KEY"],
-                    "MNG_COMPANY_CODE": mng,
-                    "COMPANY_CODE": 1 if mng == 9 else mng,
-                    "POLICY_NUM": policy_seq,
-                    "POLICY_TYPE_CODE": ptype_code,
-                    "POLICY_TYPE_DESC": ptype_desc,
-                    "POLICY_START_DATE": iso(start),
-                    "POLICY_END_DATE": iso(end),
-                    "IS_ACTIVE": is_active,
-                    "POLICY_STATUS_CODE": status_code,
-                    "POLICY_STATUS_DESC": status_desc,
-                    "IS_COLECTIVE": collective,
-                    "EMPLOYER_NUM": employer_num,
-                    "EMPLOYER_DESC": employer_desc,
-                    "BRUTO_MONTHLY_PREMIUM": premium,
-                    "AGENT_NUMBER": RNG.randint(10000, 99999),
-                    "DISTRICT_NUM": RNG.randint(1, 6),
-                    "LIQUIDITY_DATE": liquidity,
+                    "POLICY_NUMBER": policy_seq,
+                    "CUSTOMER_ID": int(cust["CUSTOMER_ID"]),
+                    "PRODUCT_CODE": ptype_code,
+                    "PRODUCT_NAME": ptype_desc,
+                    "POLICY_STATUS": status_desc,
+                    "INCEPTION_DATE": iso(start),
+                    "EXPIRY_DATE": iso(end),
+                    "GROSS_MONTHLY_PREMIUM": premium,
+                    "CONTRACT_TYPE": "Group" if group_contract else "Individual",
+                    "EMPLOYER_NAME": employer_name,
                 }
             )
     return rows
@@ -435,11 +418,9 @@ def build_foreclosures(
     *,
     target_fraction: float = 0.018,
     min_targets: int = 6,
-) -> tuple[list[dict], list[dict]]:
-    fc_labels = require_seed_material().foreclosure_labels
+) -> list[dict]:
     fc_rows: list[dict] = []
-    asset_rows: list[dict] = []
-    active = [c for c in customers if c["CURRENT_IND"] == 1]
+    active = list(customers)
     at_risk = [c for c in active if c.get("_segment") == "at_risk"]
     stable = [c for c in active if c.get("_segment") == "stable"]
     engaged = [c for c in active if c.get("_segment") == "engaged"]
@@ -461,63 +442,36 @@ def build_foreclosures(
         pool = [c for c in active if c not in targets]
         if pool:
             targets.extend(RNG.sample(pool, min(len(pool), target_count - len(targets))))
-    spuror = 5000
 
+    used_numbers: set[int] = set()
     for cust in targets:
-        spuror += 1
         fc_num = RNG.randint(100000, 999999)
+        while fc_num in used_numbers:
+            fc_num = RNG.randint(100000, 999999)
+        used_numbers.add(fc_num)
         amount = round(RNG.uniform(5000, 250000), 2)
         fc_date = date(RNG.randint(2019, 2024), RNG.randint(1, 12), RNG.randint(1, 28))
         reg_date = fc_date + timedelta(days=RNG.randint(5, 45))
-        cust_policies = [p for p in policies if p["CUSTOMER_KEY"] == cust["CUSTOMER_KEY"] and p["IS_ACTIVE"]]
+        cust_policies = [
+            p
+            for p in policies
+            if p["CUSTOMER_ID"] == cust["CUSTOMER_ID"] and _in_force(p["POLICY_STATUS"])
+        ]
+        policy_number = RNG.choice(cust_policies)["POLICY_NUMBER"] if cust_policies else None
 
         fc_rows.append(
             {
-                "COMPANY_NUMBER": 1,
-                "CUSTOMER_ID": str(cust["CUSTOMER_ID"]),
-                "FORECLOSURES_NUMBER": fc_num,
+                "FORECLOSURE_NUMBER": fc_num,
+                "CUSTOMER_ID": int(cust["CUSTOMER_ID"]),
+                "POLICY_NUMBER": policy_number,
+                "FORECLOSURE_AMOUNT": amount,
+                "FORECLOSURE_DATE": iso(fc_date),
+                "REGISTERED_DATE": iso(reg_date),
                 "PORTFOLIO_NUMBER": RNG.randint(1000, 9999),
-                "FORECLOSURES_AMOUNT": amount,
-                "FORECLOSURES_DATE": iso(fc_date),
-                "REGIST_DATE": iso(reg_date),
-                "SPUROR_NUMBER": spuror,
             }
         )
 
-        if cust_policies:
-            pol = RNG.choice(cust_policies)
-            asset_rows.append(
-                {
-                    "SPUROR_NUMBER": spuror,
-                    "COMPANY_ID": pol["COMPANY_CODE"],
-                    "CUSTOMER_ID": str(cust["CUSTOMER_ID"]),
-                    "IND_EXIST": fc_labels.yes,
-                    "ASSETS_SOURCE": "AS400-IKULIMF",
-                    "POLICY_OR_CLAIM": fc_labels.policy,
-                    "POLICY_NUM": pol["POLICY_NUM"],
-                    "CLAIM_NUM": 0,
-                    "IND_RELAVANT_ASSET": 1,
-                    "FIRST_DATE_LOCATE_ASSET": iso(fc_date + timedelta(days=RNG.randint(10, 90))),
-                }
-            )
-        if RNG.random() < 0.35:
-            claim_num = RNG.randint(200000, 299999)
-            asset_rows.append(
-                {
-                    "SPUROR_NUMBER": spuror,
-                    "COMPANY_ID": 1,
-                    "CUSTOMER_ID": str(cust["CUSTOMER_ID"]),
-                    "IND_EXIST": RNG.choice([fc_labels.yes, fc_labels.no]),
-                    "ASSETS_SOURCE": "Claims-NOGA",
-                    "POLICY_OR_CLAIM": fc_labels.claim,
-                    "POLICY_NUM": 0,
-                    "CLAIM_NUM": claim_num,
-                    "IND_RELAVANT_ASSET": 1,
-                    "FIRST_DATE_LOCATE_ASSET": iso(fc_date + timedelta(days=RNG.randint(30, 120))),
-                }
-            )
-
-    return fc_rows, asset_rows
+    return fc_rows
 
 
 def build_policy_investment_tracks(
@@ -529,7 +483,9 @@ def build_policy_investment_tracks(
 ) -> list[dict]:
     funds = require_seed_material().funds
     rows: list[dict] = []
-    invest_policies = [p for p in policies if p["MNG_COMPANY_CODE"] in (1, 7, 8) and p["IS_ACTIVE"]]
+    invest_policies = [
+        p for p in policies if p["PRODUCT_CODE"] != PROPERTY_POLICY_TYPE and _in_force(p["POLICY_STATUS"])
+    ]
     macro = investment_macro or [1.0] * len(months)
     month_index = {m: i for i, m in enumerate(months)}
 
@@ -544,18 +500,18 @@ def build_policy_investment_tracks(
         inv_affinity = float((cust or {}).get("_investment_affinity", 1.0))
 
         # Insurance-heavy customers often carry life policies without rich investment history.
-        if pol["POLICY_TYPE_CODE"] in LIFE_HEALTH_POLICY_TYPES and product_mix == "insurance_focus":
+        if pol["PRODUCT_CODE"] in LIFE_HEALTH_POLICY_TYPES and product_mix == "insurance_focus":
             if RNG.random() < 0.62:
                 continue
-        if product_mix == "insurance_focus" and pol["POLICY_TYPE_CODE"] in INVESTMENT_POLICY_TYPES:
+        if product_mix == "insurance_focus" and pol["PRODUCT_CODE"] in INVESTMENT_POLICY_TYPES:
             if RNG.random() < 0.35:
                 continue
 
-        fund_choices = [f for f in funds if f[0] == pol["MNG_COMPANY_CODE"]]
+        company = _fund_company(pol["PRODUCT_CODE"])
+        fund_choices = [f for f in funds if f[0] == company]
         if not fund_choices:
             fund_choices = funds[:2]
         tracks = RNG.sample(fund_choices, k=min(len(fund_choices), RNG.randint(1, 2)))
-        policy_key = int("".join(c for c in pol["POLICY_KEY"] if c.isdigit())[-8:])
 
         pstart = parse_policy_start(pol)
         scale = inv_affinity * RNG.uniform(0.65, 1.35)
@@ -577,57 +533,39 @@ def build_policy_investment_tracks(
             ytd_r = round(rewards * RNG.uniform(-0.08, 0.22), 2)
             ytd_t = round(ytd_r + comp * RNG.uniform(-0.05, 0.12), 2)
 
-            for track_id, (_, fund_id, _) in enumerate(tracks, start=1):
+            for _track_id, (_, fund_id, _) in enumerate(tracks, start=1):
                 split = 1 / len(tracks)
                 rows.append(
                     {
-                        "POLICY_KEY": policy_key,
-                        "SNAPSHOT_DATE": iso(last_day_of_month(snap.year, snap.month)),
-                        "MONTH_ID": month_id(snap),
-                        "MNG_COMPANY_CODE": pol["MNG_COMPANY_CODE"],
-                        "COMPANY_CODE": pol["COMPANY_CODE"],
                         "CUSTOMER_ID": int(pol["CUSTOMER_ID"]),
-                        "POLICY_NUM": pol["POLICY_NUM"],
-                        "INVESTMENT_TRACK_ID": track_id,
+                        "POLICY_NUMBER": pol["POLICY_NUMBER"],
                         "FUND_ID": fund_id,
-                        "ACCUMULATION_REWARDS": round(rewards * split, 2),
-                        "ACCUMULATION_COMPENSATION": round(comp * split, 2),
-                        "ACCUMULATION_TOTAL": round(total * split, 2),
-                        "YEARLY_PROFIT_LOSS_REWARDS": round(ytd_r * split, 2),
-                        "YEARLY_PROFIT_LOSS_TOTAL": round(ytd_t * split, 2),
+                        "SNAPSHOT_DATE": iso(last_day_of_month(snap.year, snap.month)),
+                        "ACCOUNT_VALUE": round(total * split, 2),
+                        "YTD_GAIN_LOSS": round(ytd_t * split, 2),
                     }
                 )
     return rows
 
 
 def build_market_tracks(months: list[date]) -> list[dict]:
-    material = require_seed_material()
-    funds = material.funds
-    corp_names = material.corp_names
+    funds = require_seed_material().funds
+    product_line = {1: "Life", 7: "Pension", 8: "Provident"}
     rows: list[dict] = []
     for snap in months:
         snap_d = last_day_of_month(snap.year, snap.month)
-        mid = month_id(snap_d)
         for mng, fund_id, fund_name in funds:
-            monthly_yield = round(RNG.uniform(-2.5, 3.5), 4)
             rows.append(
                 {
-                    "MONTH_ID": mid,
-                    "SNAPSHOT_DATE": iso(snap_d),
-                    "MNG_COMPANY_CODE": mng,
-                    "PRODUCT_TYPE_CODE": {1: 10, 7: 20, 8: 30}[mng],
                     "FUND_ID": fund_id,
                     "FUND_NAME": fund_name,
-                    "MANAGING_CORPORATION_LEGAL_ID": 512345678 + mng,
-                    "MANAGING_CORPORATION": corp_names[mng],
-                    "MONTHLY_YIELD": monthly_yield,
-                    "YEAR_TO_DATE_YIELD": round(RNG.uniform(-5, 12), 4),
-                    "YIELD_TRAILING_3_YRS": round(RNG.uniform(2, 10), 4),
-                    "YIELD_TRAILING_5_YRS": round(RNG.uniform(3, 9), 4),
-                    "ALPHA": round(RNG.uniform(-1, 2), 4),
+                    "SNAPSHOT_DATE": iso(snap_d),
+                    "PRODUCT_LINE": product_line[mng],
+                    "MONTHLY_YIELD": round(RNG.uniform(-2.5, 3.5), 4),
+                    "YTD_YIELD": round(RNG.uniform(-5, 12), 4),
+                    "YIELD_3Y": round(RNG.uniform(2, 10), 4),
+                    "YIELD_5Y": round(RNG.uniform(3, 9), 4),
                     "SHARPE_RATIO": round(RNG.uniform(0.2, 1.5), 4),
-                    "LIQUID_ASSETS_PERCENT": round(RNG.uniform(5, 35), 2),
-                    "STOCK_MARKET_EXPOSURE": round(RNG.uniform(15, 75), 2),
                     "TOTAL_ASSETS": round(RNG.uniform(500_000_000, 12_000_000_000), 2),
                 }
             )
@@ -642,7 +580,7 @@ def build_policy_status_snapshots(
     customers_by_id: dict[int, dict] | None = None,
 ) -> list[dict]:
     rows: list[dict] = []
-    life_health = [p for p in policies if p["POLICY_TYPE_CODE"] in LIFE_HEALTH_POLICY_TYPES]
+    life_health = [p for p in policies if p["PRODUCT_CODE"] in LIFE_HEALTH_POLICY_TYPES]
     macro = insurance_macro or [1.0] * len(months)
     month_index = {m: i for i, m in enumerate(months)}
 
@@ -667,7 +605,7 @@ def build_policy_status_snapshots(
         sum_insured = base_sum
         savings_balance = base_sum * RNG.uniform(0.12, 0.28)
         surrender_value = base_sum * RNG.uniform(0.06, 0.18)
-        premium = float(pol["BRUTO_MONTHLY_PREMIUM"] or 0)
+        premium = float(pol["GROSS_MONTHLY_PREMIUM"] or 0)
         premium_drift = RNG.uniform(-0.012, 0.018)
         cov_vol = RNG.uniform(0.003, 0.016)
 
@@ -686,21 +624,16 @@ def build_policy_status_snapshots(
             snap_d = last_day_of_month(snap.year, snap.month)
             rows.append(
                 {
-                    "COMPANY_CODE": pol["COMPANY_CODE"],
-                    "SNAPSHOT_DATE": iso(snap_d),
                     "CUSTOMER_ID": int(pol["CUSTOMER_ID"]),
-                    "POLICY_NUM": pol["POLICY_NUM"],
-                    "POLICY_STATUS_CODE": pol["POLICY_STATUS_CODE"],
-                    "POLICY_STATUS_DESC": pol["POLICY_STATUS_DESC"],
-                    "SUM_INSURED_AMOUNT": round(sum_insured, 2),
-                    "MONTHLY_PREMIUM": round(premium, 2),
-                    "DEATH_BENEFIT_AMOUNT": round(sum_insured * RNG.uniform(0.88, 1.0), 2),
+                    "POLICY_NUMBER": pol["POLICY_NUMBER"],
+                    "SNAPSHOT_DATE": iso(snap_d),
+                    "POLICY_STATUS": pol["POLICY_STATUS"],
+                    "SUM_INSURED": round(sum_insured, 2),
+                    "GROSS_MONTHLY_PREMIUM": round(premium, 2),
+                    "DEATH_BENEFIT": round(sum_insured * RNG.uniform(0.88, 1.0), 2),
                     "SURRENDER_VALUE": round(surrender_value, 2),
-                    "PAID_UP_VALUE": round(surrender_value * 0.9, 2),
                     "SAVINGS_BALANCE": round(savings_balance, 2),
-                    "PREMIUM_MANAGEMENT_FEE": round(premium * 0.02, 2),
-                    "SAVINGS_MANAGEMENT_FEE": round(savings_balance * 0.004, 2),
-                    "EMPLOYER_BENEFIT_AMOUNT": round(savings_balance * 0.25, 2),
+                    "PAID_UP_VALUE": round(surrender_value * 0.9, 2),
                 }
             )
     return rows
@@ -770,11 +703,9 @@ def init_database(
     print("Building policies…", flush=True)
     policies = build_policies(customers)
     print("Building foreclosures, investments, coverage snapshots…", flush=True)
-    foreclosures, fc_assets = build_foreclosures(customers, policies)
+    foreclosures = build_foreclosures(customers, policies)
     investment_macro, insurance_macro = build_decorrelated_macro_series(months)
-    customers_by_id = {
-        int(c["CUSTOMER_ID"]): c for c in customers if c.get("CURRENT_IND") == 1
-    }
+    customers_by_id = {int(c["CUSTOMER_ID"]): c for c in customers}
     pit = build_policy_investment_tracks(
         policies,
         months,
@@ -815,13 +746,12 @@ def init_database(
             conn.executescript(metrics_schema.read_text(encoding="utf-8"))
 
         print("Writing warehouse tables…", flush=True)
-        insert_rows(conn, "DWH_DIM_CUSTOMERS_UNIQUE", _customer_rows_for_db(customers))
-        insert_rows(conn, "DWH_DIM_ALL_POLICY", policies)
-        insert_rows(conn, "DWH_FCT_FORECLOSURES", foreclosures)
-        insert_rows(conn, "DWH_FCT_FORECLOSURES_ASSETS", fc_assets)
-        insert_rows(conn, "DWH_FCT_POLICY_INVESTMENT_TRACK", pit)
-        insert_rows(conn, "DWH_FCT_INVESTMENT_TRACK", market)
-        insert_rows(conn, "DWH_FCT_POLICY_STATUS", policy_status)
+        insert_rows(conn, "DIM_CUSTOMERS", _customer_rows_for_db(customers))
+        insert_rows(conn, "DIM_POLICIES", _policy_rows_for_db(policies))
+        insert_rows(conn, "FCT_POLICY_FORECLOSURES", foreclosures)
+        insert_rows(conn, "FCT_POLICY_INVESTMENTS", pit)
+        insert_rows(conn, "FCT_INVESTMENT_FUNDS", market)
+        insert_rows(conn, "FCT_POLICY_STATUS", policy_status)
         insert_rows(conn, "APP_CUSTOMER_INTERACTION_EVENTS", interactions)
         write_territory_config(
             conn,
@@ -860,13 +790,12 @@ def init_database(
 
         counts = conn.execute(
             """
-            SELECT 'DWH_DIM_CUSTOMERS_UNIQUE' AS tbl, COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE
-            UNION ALL SELECT 'DWH_DIM_ALL_POLICY', COUNT(*) FROM DWH_DIM_ALL_POLICY
-            UNION ALL SELECT 'DWH_FCT_FORECLOSURES', COUNT(*) FROM DWH_FCT_FORECLOSURES
-            UNION ALL SELECT 'DWH_FCT_FORECLOSURES_ASSETS', COUNT(*) FROM DWH_FCT_FORECLOSURES_ASSETS
-            UNION ALL SELECT 'DWH_FCT_POLICY_INVESTMENT_TRACK', COUNT(*) FROM DWH_FCT_POLICY_INVESTMENT_TRACK
-            UNION ALL SELECT 'DWH_FCT_INVESTMENT_TRACK', COUNT(*) FROM DWH_FCT_INVESTMENT_TRACK
-            UNION ALL SELECT 'DWH_FCT_POLICY_STATUS', COUNT(*) FROM DWH_FCT_POLICY_STATUS
+            SELECT 'DIM_CUSTOMERS' AS tbl, COUNT(*) FROM DIM_CUSTOMERS
+            UNION ALL SELECT 'DIM_POLICIES', COUNT(*) FROM DIM_POLICIES
+            UNION ALL SELECT 'FCT_POLICY_FORECLOSURES', COUNT(*) FROM FCT_POLICY_FORECLOSURES
+            UNION ALL SELECT 'FCT_POLICY_INVESTMENTS', COUNT(*) FROM FCT_POLICY_INVESTMENTS
+            UNION ALL SELECT 'FCT_INVESTMENT_FUNDS', COUNT(*) FROM FCT_INVESTMENT_FUNDS
+            UNION ALL SELECT 'FCT_POLICY_STATUS', COUNT(*) FROM FCT_POLICY_STATUS
             UNION ALL SELECT 'APP_CUSTOMER_INTERACTION_EVENTS', COUNT(*) FROM APP_CUSTOMER_INTERACTION_EVENTS
             """
         ).fetchall()

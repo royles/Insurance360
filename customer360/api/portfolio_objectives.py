@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from customer360.api.segments import SEGMENT_WHERE, normalize_segment
+from customer360.api.segments import normalize_segment, segment_scope_sql
+from customer360.warehouse import active_policy_predicate
 
 BOOK_WIDE_SEGMENT = "customers_all"
 
@@ -28,8 +29,7 @@ def objectives_note_for_segment(segment: str | None) -> str:
 
 
 def _scope(segment: str | None) -> tuple[str, list[object]]:
-    seg = normalize_segment(segment)
-    return f"c.CURRENT_IND = 1 AND ({SEGMENT_WHERE[seg]})", []
+    return segment_scope_sql(segment)
 
 
 def fetch_savings_aum_trend(
@@ -42,15 +42,15 @@ def fetch_savings_aum_trend(
         f"""
         WITH scoped AS (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             WHERE {where_sql}
         )
         SELECT
             pit.SNAPSHOT_DATE AS period,
-            SUM(pit.ACCUMULATION_TOTAL) AS accumulation_total,
+            SUM(pit.ACCOUNT_VALUE) AS accumulation_total,
             COUNT(DISTINCT pit.CUSTOMER_ID) AS active_savers,
-            COUNT(DISTINCT pit.POLICY_NUM) AS savings_policies
-        FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+            COUNT(DISTINCT pit.POLICY_NUMBER) AS savings_policies
+        FROM FCT_POLICY_INVESTMENTS pit
         INNER JOIN scoped sc ON sc.CUSTOMER_ID = pit.CUSTOMER_ID
         GROUP BY pit.SNAPSHOT_DATE
         ORDER BY pit.SNAPSHOT_DATE ASC
@@ -79,22 +79,22 @@ def fetch_premium_momentum_trend(
         f"""
         WITH scoped AS (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             WHERE {where_sql}
         ),
         policy_month AS (
             SELECT
                 pit.SNAPSHOT_DATE AS period,
                 sc.CUSTOMER_ID AS customer_id,
-                pol.POLICY_NUM AS policy_num,
-                MAX(pol.BRUTO_MONTHLY_PREMIUM) AS monthly_premium
-            FROM DWH_FCT_POLICY_INVESTMENT_TRACK pit
+                pol.POLICY_NUMBER AS policy_num,
+                MAX(pol.GROSS_MONTHLY_PREMIUM) AS monthly_premium
+            FROM FCT_POLICY_INVESTMENTS pit
             INNER JOIN scoped sc ON sc.CUSTOMER_ID = pit.CUSTOMER_ID
-            INNER JOIN DWH_DIM_ALL_POLICY pol
-                ON pol.CUSTOMER_ID = CAST(sc.CUSTOMER_ID AS TEXT)
-                AND pol.POLICY_NUM = pit.POLICY_NUM
-                AND pol.IS_ACTIVE = 1
-            GROUP BY pit.SNAPSHOT_DATE, sc.CUSTOMER_ID, pol.POLICY_NUM
+            INNER JOIN DIM_POLICIES pol
+                ON pol.CUSTOMER_ID = sc.CUSTOMER_ID
+                AND pol.POLICY_NUMBER = pit.POLICY_NUMBER
+                AND {active_policy_predicate("pol")}
+            GROUP BY pit.SNAPSHOT_DATE, sc.CUSTOMER_ID, pol.POLICY_NUMBER
         )
         SELECT
             period,
@@ -119,20 +119,20 @@ def fetch_premium_momentum_trend(
         f"""
         WITH scoped AS (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             WHERE {where_sql}
         )
         SELECT
             ps.SNAPSHOT_DATE AS period,
-            COUNT(DISTINCT ps.POLICY_NUM) AS active_policy_count,
+            COUNT(DISTINCT ps.POLICY_NUMBER) AS active_policy_count,
             COUNT(DISTINCT ps.CUSTOMER_ID) AS active_customers,
-            COALESCE(SUM(ps.MONTHLY_PREMIUM), 0) AS monthly_premium_total,
+            COALESCE(SUM(ps.GROSS_MONTHLY_PREMIUM), 0) AS monthly_premium_total,
             ROUND(
-                COUNT(DISTINCT ps.POLICY_NUM) * 1.0
+                COUNT(DISTINCT ps.POLICY_NUMBER) * 1.0
                 / NULLIF(COUNT(DISTINCT ps.CUSTOMER_ID), 0),
                 2
             ) AS avg_policies_per_customer
-        FROM DWH_FCT_POLICY_STATUS ps
+        FROM FCT_POLICY_STATUS ps
         INNER JOIN scoped sc ON sc.CUSTOMER_ID = ps.CUSTOMER_ID
         GROUP BY ps.SNAPSHOT_DATE
         ORDER BY ps.SNAPSHOT_DATE ASC
@@ -147,16 +147,16 @@ def fetch_premium_momentum_trend(
         f"""
         WITH scoped AS (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             WHERE {where_sql}
         )
         SELECT
-            COUNT(DISTINCT pol.POLICY_NUM) AS active_policy_count,
+            COUNT(DISTINCT pol.POLICY_NUMBER) AS active_policy_count,
             COUNT(DISTINCT sc.CUSTOMER_ID) AS active_customers,
-            COALESCE(SUM(pol.BRUTO_MONTHLY_PREMIUM), 0) AS monthly_premium_total
-        FROM DWH_DIM_ALL_POLICY pol
-        INNER JOIN scoped sc ON pol.CUSTOMER_ID = CAST(sc.CUSTOMER_ID AS TEXT)
-        WHERE pol.IS_ACTIVE = 1
+            COALESCE(SUM(pol.GROSS_MONTHLY_PREMIUM), 0) AS monthly_premium_total
+        FROM DIM_POLICIES pol
+        INNER JOIN scoped sc ON pol.CUSTOMER_ID = sc.CUSTOMER_ID
+        WHERE {active_policy_predicate("pol")}
         """,
         params,
     ).fetchone()
@@ -225,7 +225,7 @@ def fetch_engagement_trend(
         f"""
         WITH scoped AS (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             WHERE {where_sql}
         )
         SELECT

@@ -37,13 +37,13 @@ def fetch_retention_playbook(
         value_sql = f"ROUND({CUSTOMER_VALUE_SQL}, 2)"
         metrics_join = ""
 
-    base_where = f"c.CURRENT_IND = 1 AND ({segment_sql})"
+    base_where = f"({segment_sql})"
 
     total = conn.execute(
         f"""
         SELECT COUNT(*) FROM (
             SELECT c.CUSTOMER_ID
-            FROM DWH_DIM_CUSTOMERS_UNIQUE c
+            FROM DIM_CUSTOMERS c
             {metrics_join}
             LEFT JOIN APP_CUSTOMER_CHURN_SCORES ch ON ch.CUSTOMER_ID = c.CUSTOMER_ID
             WHERE {base_where}
@@ -56,14 +56,14 @@ def fetch_retention_playbook(
         f"""
         SELECT
             c.CUSTOMER_ID AS customer_id,
-            c.CUSTOMER_KEY AS customer_key,
-            c.CUSTOMER_NAME AS customer_name,
-            c.CITY_NAME AS city_name,
+            CAST(c.CUSTOMER_ID AS TEXT) AS customer_key,
+            TRIM(COALESCE(c.FIRST_NAME, '') || ' ' || COALESCE(c.SURNAME, '')) AS customer_name,
+            c.CITY AS city_name,
             {value_sql} AS customer_value,
             ch.CHURN_PROBABILITY AS churn_probability,
             ch.CHURN_RISK_TIER AS churn_risk_tier,
             ROUND(({value_sql}) * ({_CHURN_PROB}), 2) AS value_at_risk
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
+        FROM DIM_CUSTOMERS c
         {metrics_join}
         LEFT JOIN APP_CUSTOMER_CHURN_SCORES ch ON ch.CUSTOMER_ID = c.CUSTOMER_ID
         WHERE {base_where}

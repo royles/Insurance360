@@ -25,7 +25,7 @@ def compile_customer_list_sql(
     )
     sql = f"""
 SELECT COUNT(DISTINCT c.CUSTOMER_ID)
-FROM DWH_DIM_CUSTOMERS_UNIQUE c
+FROM DIM_CUSTOMERS c
 WHERE {where_sql}
 """.strip()
     parts = [f"segment={f.segment}"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from customer360.api.segments import normalize_segment, segment_scope_sql
+from customer360.warehouse import POLICIES, customer_name_expr
 
 VALID_CHURN_RISK_TIERS = frozenset({"HIGH", "MEDIUM", "LOW"})
 
@@ -79,19 +80,19 @@ def customer_list_where(
 ) -> tuple[str, list[object]]:
     where, params = segment_scope_sql(normalize_segment(seg))
     if q and q.strip():
-        where += " AND (c.CUSTOMER_NAME LIKE ? OR CAST(c.CUSTOMER_ID AS TEXT) LIKE ?)"
+        where += f" AND ({customer_name_expr('c')} LIKE ? OR CAST(c.CUSTOMER_ID AS TEXT) LIKE ?)"
         like = f"%{q.strip()}%"
         params.extend([like, like])
     city_canon = normalize_city_name(city)
     if city_canon:
-        where += " AND c.CITY_NAME = ?"
+        where += " AND c.CITY = ?"
         params.append(city_canon)
     if policy_type_code is not None:
-        where += """
+        where += f"""
             AND EXISTS (
-                SELECT 1 FROM DWH_DIM_ALL_POLICY p
-                WHERE p.CUSTOMER_ID = CAST(c.CUSTOMER_ID AS TEXT)
-                  AND p.POLICY_TYPE_CODE = ?
+                SELECT 1 FROM {POLICIES} p
+                WHERE p.CUSTOMER_ID = c.CUSTOMER_ID
+                  AND p.PRODUCT_CODE = ?
             )
         """
         params.append(int(policy_type_code))

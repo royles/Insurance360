@@ -43,7 +43,7 @@ def test_reseed_uses_admin_sqlite_path(tmp_path: Path, monkeypatch: pytest.Monke
     wh_conn = connect(warehouse)
     try:
         count = wh_conn.execute(
-            "SELECT COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE WHERE CURRENT_IND = 1"
+            "SELECT COUNT(*) FROM DIM_CUSTOMERS"
         ).fetchone()[0]
         assert count == 15
     finally:

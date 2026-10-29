@@ -18,9 +18,11 @@ def _iso(dt: datetime) -> str:
 
 
 def _customer_policy_stats(policies: list[dict], customer_id: int) -> tuple[int, int, float]:
-    cust_policies = [p for p in policies if p["CUSTOMER_ID"] == str(customer_id)]
+    from customer360.warehouse import ACTIVE_POLICY_STATUSES
+
+    cust_policies = [p for p in policies if p["CUSTOMER_ID"] == customer_id]
     total = len(cust_policies)
-    active = sum(1 for p in cust_policies if p["IS_ACTIVE"])
+    active = sum(1 for p in cust_policies if p["POLICY_STATUS"] in ACTIVE_POLICY_STATUSES)
     inactive_ratio = (total - active) / total if total else 1.0
     return total, active, inactive_ratio
 
@@ -48,7 +50,7 @@ def _risk_weight(
     cid = int(customer["CUSTOMER_ID"])
     _, active, inactive_ratio = _customer_policy_stats(policies, cid)
 
-    if customer.get("USER_SITE_REGISTER_STATUS") != 1:
+    if not customer.get("_registered"):
         weight += 0.08
     last_login = customer.get("LAST_LOGIN")
     if not last_login:
@@ -88,7 +90,7 @@ def build_interaction_events(
     rows: list[dict] = []
     event_id = 0
 
-    active_customers = [c for c in customers if c.get("CURRENT_IND") == 1]
+    active_customers = list(customers)
 
     for customer in active_customers:
         cid = int(customer["CUSTOMER_ID"])

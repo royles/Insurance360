@@ -236,16 +236,18 @@ def search_customers_by_name(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     )
     rows = ctx.conn.execute(
         f"""
-        SELECT c.CUSTOMER_ID AS customer_id, c.CUSTOMER_NAME AS customer_name, c.CITY_NAME AS city_name
-        FROM DWH_DIM_CUSTOMERS_UNIQUE c
+        SELECT c.CUSTOMER_ID AS customer_id,
+               TRIM(COALESCE(c.FIRST_NAME, '') || ' ' || COALESCE(c.SURNAME, '')) AS customer_name,
+               c.CITY AS city_name
+        FROM DIM_CUSTOMERS c
         WHERE {where}
-        ORDER BY c.CUSTOMER_NAME
+        ORDER BY customer_name
         LIMIT ?
         """,
         [*params, limit],
     ).fetchall()
     total = ctx.conn.execute(
-        f"SELECT COUNT(*) FROM DWH_DIM_CUSTOMERS_UNIQUE c WHERE {where}",
+        f"SELECT COUNT(*) FROM DIM_CUSTOMERS c WHERE {where}",
         params,
     ).fetchone()[0]
     matches = [
