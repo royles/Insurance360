@@ -101,29 +101,29 @@
   "employers": [
     [
       1001,
-      "Saudi Aramco"
+      "Najd Energy"
     ],
     [
       1002,
-      "SABIC"
+      "Gulf Polymers"
     ],
     [
       1003,
-      "STC Group"
+      "Red Sea Telecom"
     ],
     [
       1004,
-      "Al Rajhi Bank"
+      "Dune Bank"
     ],
     [
       1005,
-      "NEOM Company"
+      "Horizon City Co"
     ]
   ],
   "corp_names": {
-    "1": "Tawuniya Life",
-    "7": "GOSI Pension",
-    "8": "Alinma Savings"
+    "1": "Palm Life",
+    "7": "Dune Pension",
+    "8": "Wadi Savings"
   },
   "funds": [
     [

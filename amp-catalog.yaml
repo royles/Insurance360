@@ -9,7 +9,7 @@ entries:
       Customer 360 dashboard with warehouse analytics, churn ML, interaction events,
       and Amazon Bedrock insights plus outreach drafts.
     long_description: >-
-      End-to-end Cloudera AI application for insurance Customer 360: DDS-aligned SQLite
+      End-to-end Cloudera AI application for insurance Customer 360: SQLite
       warehouse, logistic-regression churn scores with interaction features, synthetic
       omnichannel events, and a FastAPI + React dashboard. Amazon Bedrock generates
       per-customer summaries, recommendations, and email/SMS/call drafts when AWS

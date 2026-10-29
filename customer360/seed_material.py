@@ -364,8 +364,10 @@ def _build_llm_prompts(profile: TerritoryProfile, seed_language: str) -> tuple[s
     )
     system = """
 You generate synthetic insurance warehouse seed data as one JSON object only.
-Match the geographic region (cities, names, employers) and write all human-readable strings
+Match the geographic region for cities and personal names, and write all human-readable strings
 in the requested seed language (interaction copy, fund names, marital labels, etc.).
+Employer and insurer names must stay fictional. Do not use real companies, banks, retailers,
+utilities, telecoms, or government agencies.
 Keep every numeric id/key from requirements exactly; only change descriptive text.
 Return valid JSON with keys:
 first_names, last_names, cities, city_aliases, employers, corp_names, funds,

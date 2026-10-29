@@ -104,29 +104,29 @@
   "employers": [
     [
       1001,
-      "Intel Israel"
+      "Carmel Circuits Ltd"
     ],
     [
       1002,
-      "Tehila Tech Ltd"
+      "Sharon Digital Ltd"
     ],
     [
       1003,
-      "Maccabi Healthcare"
+      "Lev Health Services"
     ],
     [
       1004,
-      "Israel Electric Corp"
+      "Negev Power Co"
     ],
     [
       1005,
-      "Bank Hapoalim"
+      "Jordan Valley Bank"
     ]
   ],
   "corp_names": {
-    "1": "Phoenix Life Insurance",
-    "7": "Clal Pension",
-    "8": "Meitav Dash Gemel"
+    "1": "Cedar Life",
+    "7": "Olive Pension",
+    "8": "Galilee Savings"
   },
   "funds": [
     [

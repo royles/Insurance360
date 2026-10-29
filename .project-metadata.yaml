@@ -1,6 +1,6 @@
 name: Insurance Customer 360
 description: >
-  Cloudera AI application: unified insurance Customer 360 dashboard with a DDS-aligned
+  Cloudera AI application: unified insurance Customer 360 dashboard with a
   SQLite warehouse, churn scoring, synthetic interaction events, and Amazon Bedrock for
   AI insights and outreach drafts. Import as an Applied ML Prototype (AMP) or deploy from
   Git; automated jobs install dependencies, build the React UI, seed data, train churn,

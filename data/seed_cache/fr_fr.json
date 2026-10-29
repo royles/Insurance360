@@ -101,29 +101,29 @@
   "employers": [
     [
       1001,
-      "EDF SA"
+      "Lumière Énergie"
     ],
     [
       1002,
-      "Carrefour France"
+      "Marché Nord"
     ],
     [
       1003,
-      "BNP Paribas"
+      "Seine Banque"
     ],
     [
       1004,
-      "Orange SA"
+      "Azur Télécom"
     ],
     [
       1005,
-      "TotalEnergies"
+      "Atlantique Énergies"
     ]
   ],
   "corp_names": {
-    "1": "AXA France Vie",
-    "7": "CNAV Retraite",
-    "8": "Crédit Agricole Épargne"
+    "1": "Brume Vie",
+    "7": "Loire Retraite",
+    "8": "Rivière Épargne"
   },
   "funds": [
     [
