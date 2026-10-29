@@ -270,7 +270,6 @@ def build_customers(n: int = DEFAULT_SEED_CUSTOMERS) -> list[dict]:
                 "_coverage_affinity": round(RNG.uniform(0.35, 1.15), 4),
                 "CUSTOMER_KEY": key,
                 "CUSTOMER_ID": cid,
-                "CUSTOMER_ID_CHAR": str(cid),
                 "CUSTOMER_TYPE": ctype,
                 "CUSTOMER_TYPE_DSC": material.customer_type_map[ctype],
                 "FIRST_NAME": first,
