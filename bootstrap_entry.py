@@ -10,7 +10,7 @@ from pathlib import Path
 def _has_project_markers(root: Path) -> bool:
     root = root.resolve()
     return (root / "data" / "schema.sql").is_file() and (
-        root / "1_session-install-dependencies" / "requirements.txt"
+        root / "requirements.txt"
     ).is_file()
 
 
@@ -62,7 +62,7 @@ def discover_project_root(script_file: str | None = None) -> Path:
         hints.append(f"  script_file={script_file}")
     raise FileNotFoundError(
         "Could not locate the Customer 360 project root (expected data/schema.sql and "
-        "1_session-install-dependencies/requirements.txt).\n" + "\n".join(hints)
+        "requirements.txt).\n" + "\n".join(hints)
     )
 
 

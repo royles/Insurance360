@@ -12,7 +12,7 @@ from customer360.churn.scoring import churn_scores_populated
 
 def test_playbook_queue_has_no_inline_actions(conn: sqlite3.Connection) -> None:
     if not churn_scores_populated(conn):
-        pytest.skip("churn scores not populated (install ML deps from requirements-dev.txt)")
+        pytest.skip("churn scores not populated (install deps from requirements.txt)")
     data = fetch_retention_playbook(conn, limit=5)
     assert data["items"]
     assert all(item["recommended_action"] is None for item in data["items"])
