@@ -19,7 +19,7 @@ KPI_CATALOG: tuple[dict[str, Any], ...] = (
         "direction": "higher",
         "unit_kind": "money",
         "amber_threshold": 0.85,
-        "description": "Portfolio objective for total customer value (ILS).",
+        "description": "Portfolio objective for total customer value.",
         "sort_order": 10,
     },
     {
@@ -46,7 +46,7 @@ KPI_CATALOG: tuple[dict[str, Any], ...] = (
         "direction": "lower",
         "unit_kind": "money",
         "amber_threshold": 1.2,
-        "description": "Maximum acceptable 12-month value at risk (ILS).",
+        "description": "Maximum acceptable 12-month value at risk.",
         "sort_order": 40,
     },
     {
@@ -55,7 +55,7 @@ KPI_CATALOG: tuple[dict[str, Any], ...] = (
         "direction": "higher",
         "unit_kind": "money",
         "amber_threshold": 0.85,
-        "description": "Average customer value objective (ILS).",
+        "description": "Average customer value objective.",
         "sort_order": 50,
     },
     {
