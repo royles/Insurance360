@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Synthetic data](#synthetic-data)
 - [Demo](#demo)
 - [Use Case](#use-case)
 - [Key Features](#key-features)
@@ -23,6 +24,12 @@ runs as a launchable Applied ML Prototype (AMP) on **Cloudera AI**: one import p
 dependencies, builds a synthetic insurance warehouse, trains the churn model, and starts a web
 dashboard. Data, model training, and the application all stay inside the governed Cloudera
 platform. The LLM is pluggable: use Amazon Bedrock or a private OpenAI-compatible endpoint.
+
+## Synthetic data
+
+All data is synthetic and representative. Customers, policies, employers, insurers,
+and interaction text are generated for demonstration and do not describe real people
+or businesses.
 
 ## Demo
 
