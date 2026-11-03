@@ -76,7 +76,7 @@ def main() -> None:
     except ImportError as exc:
         print(
             "Churn training skipped (missing ML dependencies). "
-            "Install requirements-ml.txt then run 3_job-train-churn-model/train_churn.py.",
+            "Install requirements.txt then run 3_job-train-churn-model/train_churn.py.",
             flush=True,
         )
         print(f"  ({exc})", flush=True)

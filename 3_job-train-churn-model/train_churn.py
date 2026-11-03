@@ -26,8 +26,8 @@ def _bootstrap() -> Path:
 
 
 root = _bootstrap()
-ml_req = root / "1_session-install-dependencies" / "requirements-ml.txt"
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(ml_req)])
+req = root / "requirements.txt"
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(req)])
 
 from customer360.churn.model import train_and_persist
 from customer360.paths import default_db_path, project_root

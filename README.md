@@ -1,263 +1,200 @@
-# ClouderaAppliedAI
+# Cloudera Blueprint: Insurance Customer 360
 
-The repo ships a prebuilt `frontend/dist/`; run `npm run build` in `frontend/` only
-when you change the UI.
+## Table of Contents
 
-## Insurance Customer 360
+- [Overview](#overview)
+- [Synthetic data](#synthetic-data)
+- [Demo](#demo)
+- [Use Case](#use-case)
+- [Key Features](#key-features)
+- [Quickstart / Guide](#quickstart--guide)
+- [Architecture / Software Components](#architecture--software-components)
+- [Target Audience](#target-audience)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Hardware Requirements](#hardware-requirements)
+- [Documentation](#documentation)
 
-Unified customer dashboard for Cloudera AI (CAI), backed by a SQLite warehouse.
+## Overview
+
+Insurance Customer 360 brings a policyholder's policies, investments, liens, and interaction
+history into a single view. It scores each customer's churn risk with a machine learning model
+and uses generative AI to explain that risk and draft the next retention action. The blueprint
+runs as a launchable Applied ML Prototype (AMP) on **Cloudera AI**: one import provisions the
+dependencies, builds a synthetic insurance warehouse, trains the churn model, and starts a web
+dashboard. Data, model training, and the application all stay inside the governed Cloudera
+platform. The LLM is pluggable: use Amazon Bedrock or a private OpenAI-compatible endpoint.
+
+## Synthetic data
+
 All data is synthetic and representative. Customers, policies, employers, insurers,
 and interaction text are generated for demonstration and do not describe real people
 or businesses.
 
-### Architecture resources
+## Demo
 
+Reprise walkthrough: _coming soon_
 
-| Resource                                                               | Description                                                                              |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [Runtime architecture (PNG)](docs/diagrams/runtime-architecture.png)   | CAI AMP import jobs, SQLite warehouse, FastAPI + React, optional LLM providers           |
-| [Logical request flows (PNG)](docs/diagrams/logical-request-flows.png) | REST reads and SSE streams for insights, retention queue, assistant, and outreach drafts |
-| [Diagram sources & regenerate](docs/diagrams/README.md)                | Mermaid (`.mmd`) sources and `mermaid-cli` commands to refresh PNGs                      |
+## Use Case
 
+Insurers hold customer data across separate policy, investment, and service systems. Agents and
+retention teams cannot see the whole relationship, so they often learn a customer is leaving
+only after a surrender or lapse request.
 
-![Runtime architecture](docs/diagrams/runtime-architecture.png)
+This blueprint gives those teams one place to:
 
-![Logical request flows](docs/diagrams/logical-request-flows.png)
+- see the full value of every relationship across life, health, property, pension, and savings
+  products;
+- prioritize the customers most likely to churn, ranked by risk and value at stake;
+- act on that risk with personalised, AI-drafted outreach.
+
+The business outcome is higher retention and assets under management, through earlier,
+better-targeted intervention.
+
+## Key Features
+
+- **Unified customer view.** Policies, coverage, investment performance, liens, and interaction
+  history (reviews, agent questions, searches) in one profile.
+- **Churn risk scoring.** A logistic-regression model trained on warehouse behaviour and
+  interaction signals assigns every customer a churn probability and risk tier.
+- **AI customer insights.** Streaming, per-customer summaries explain why a customer is at risk
+  and recommend the next best action.
+- **Generated outreach.** One click drafts a personalised email, SMS, or call script for a
+  recommended action.
+- **Retention playbook.** A prioritized queue of at-risk customers with AI-generated
+  recommendations.
+- **Portfolio analytics.** Book-level KPIs, segment comparisons, and strategic objective trends
+  (savings AUM, premium momentum, engagement) measured against configurable benchmarks.
+- **Analytics copilot.** A tool-calling assistant that answers natural-language questions about
+  customers, cohorts, products, and the portfolio.
+- **Multi-region, multi-language.** Synthetic data for Israel, the UK, Spain, Saudi Arabia, and
+  France. UI in English, French, Spanish, Hebrew, and Arabic (with right-to-left layout).
+- **Pluggable LLM.** Amazon Bedrock or any OpenAI-compatible endpoint, switchable from the Admin
+  page. The core dashboard and churn scores still work without an LLM.
+
+## Quickstart / Guide
 
 ### Deploy on Cloudera AI
 
-This repo is packaged as a **CAI application (AMP)** via `.project-metadata.yaml` and
-`amp-catalog.yaml`. Step-by-step instructions: [docs/CAI_APPLICATION.md](docs/CAI_APPLICATION.md).
+1. In Cloudera AI, create a **New Project** from this Git repository (branch `main`) and choose
+   **Configure as Prototype**. Alternatively, launch **Insurance Customer 360** from your AMP
+   catalog (see [`amp-catalog.yaml`](amp-catalog.yaml)).
+2. Optional: to enable the generative AI features, set the Amazon Bedrock environment variables
+   during import (`AWS_*`, `CUSTOMER360_BEDROCK_REGION`, `CUSTOMER360_BEDROCK_MODEL_ID`). You
+   can also configure an OpenAI-compatible endpoint after launch from **Admin → Configuration →
+   LLM provider**.
+3. The import runs these stages automatically:
 
-1. Create a project from this Git repository and **configure as prototype**, or launch from your
-  AMP catalog entry (**Insurance Customer 360**).
-2. On first import, `.project-metadata.yaml` runs these stages in order:
+   | Stage | Script                                        | Purpose                                         |
+   | ----- | --------------------------------------------- | ----------------------------------------------- |
+   | 1     | `1_session-install-dependencies/install.py`   | Install Python dependencies and the `customer360` package |
+   | 2     | `scripts/build_frontend.py`                   | Build the React UI (skipped when `frontend/dist` is present) |
+   | 3     | `2_job-init-database/init_database.py`        | Seed the synthetic insurance warehouse          |
+   | 4     | `3_job-train-churn-model/train_churn.py`      | Train the churn model and write scores          |
+   | 5     | `4_application/start-app.py`                  | Start the **Customer 360 Dashboard** application |
 
-  | Stage | Folder / script                   | Purpose                                      |
-  | ----- | --------------------------------- | -------------------------------------------- |
-  | 1     | `1_session-install-dependencies/` | Python deps + editable `customer360` install |
-  | 2     | `scripts/build_frontend.py`       | `npm run build` → `frontend/dist`            |
-  | 3     | `2_job-init-database/`            | Seed `data/customer360.db`                   |
-  | 4     | `3_job-train-churn-model/`        | Churn model → `APP_CUSTOMER_CHURN_SCORES`    |
-  | 5     | `4_application/start-app.py`      | FastAPI + React dashboard                    |
+4. Open **Customer 360 Dashboard** from the project's **Applications** tab.
 
-3. Application scripts bind to `127.0.0.1` and use `CDSW_APP_PORT` (Workbench/CML) or `APP_PORT` (AI Inference, default 8080). Do not hard-code ports.
+Full deployment steps: [docs/CAI_APPLICATION.md](docs/CAI_APPLICATION.md).
 
-Optional environment variable:
-
-
-| Variable                         | Default               | Purpose                                                                                                             |
-| -------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `CUSTOMER360_DB_PATH`            | `data/customer360.db` | Bootstrap SQLite path for admin settings (set to your warehouse file in CAI, e.g. `/home/cdsw/data/customer360.db`) |
-| `CUSTOMER360_SEED_TERRITORY`     | `il`                  | Demo **region** for seed data: `il`, `gb`, `es`, `sa`, `fr` (names, cities, currency)                               |
-| `CUSTOMER360_SEED_LANGUAGE`      | (per region)          | **Seed language** for interaction copy: `en`, `fr`, `es`, `he`, `ar` (independent of region)                        |
-| `CUSTOMER360_SEED_CUSTOMERS`     | `2000`                | Customer count when seeding (see scale docs)                                                                        |
-| `AWS_*`, `CUSTOMER360_BEDROCK_*` | —                     | Amazon Bedrock (insights + outreach drafts); see `.env.example`                                                     |
-
-
-**Region** profiles drive warehouse geography (customer names, cities, employers, currency) and
-LLM market context. **Seed language** controls interaction event text and is stored separately
-(`APP_TERRITORY_CONFIG.SEED_LANGUAGE`). UI languages are `en`, `fr`, `es`, `he`, and `ar`
-(Hebrew is not the same as the Israel region id `il`).
-
-After editing `frontend/src/locales/en.json`, regenerate non-English packs and rebuild the UI:
+### Run locally
 
 ```bash
-python3 -m pip install deep-translator   # or requirements-dev.txt
-cd frontend && python3 scripts/build-language-packs.py
-npm run build   # updates frontend/dist bundled with Vite
-```
-
-Use `{lang}-patch.json` to fix machine-translation glitches (tab labels, product names).
-Set `CUSTOMER360_I18N_SKIP_TRANSLATE=1` only for offline smoke tests (overlay-only packs).
-
-**Admin → Configuration → Localization and Territory** persists UI region override and preferred
-UI language in `APP_ADMIN_LOCALIZATION` (without reseeding). Use **Reseed warehouse** in that
-panel or `POST /api/admin/warehouse/reseed` to rebuild data for a new region + seed language.
-
-Reseed examples:
-
-```bash
-CUSTOMER360_SEED_TERRITORY=il CUSTOMER360_SEED_LANGUAGE=en python3 scripts/init_db.py
-# or
-python3 -m customer360.seed --territory sa --language ar --customers 500
-```
-
-**LLM seed material:** When an LLM provider is configured, `init_database` / reseed calls the model
-with representative samples for the selected **region** and **seed language**, validates the JSON,
-writes customers and interaction copy from that bundle, and caches it under
-`data/seed_cache/{region}_{language}.json`. Use `CUSTOMER360_SEED_SKIP_LLM=1` for offline/tests,
-`CUSTOMER360_SEED_LLM_REFRESH=1` to bypass cache, and `CUSTOMER360_SEED_REQUIRE_LLM=1` to fail if
-generation is unavailable.
-
-### Project layout (CAI-compatible)
-
-```
-.
-├── .project-metadata.yaml          # CAI AMP import + application tasks
-├── amp-catalog.yaml                # Optional AMP catalog registration
-├── docs/CAI_APPLICATION.md         # Deploy guide
-├── 1_session-install-dependencies/ # stage 1: pip install
-├── 2_job-init-database/            # stage 3: warehouse seed
-├── 3_job-train-churn-model/        # stage 4: churn training
-├── 4_application/                  # stage 5: FastAPI app launcher
-├── customer360/                    # Shared Python package (seed, DB, churn, API)
-├── data/schema.sql                 # Warehouse DDL
-├── scripts/build_frontend.py       # stage 2: React build
-└── scripts/init_db.py                # Local dev CLI (same as stage 3 job)
-```
-
-
-
-### Warehouse domains
-
-
-| Table                                                  | Domain                                                   |
-| ------------------------------------------------------ | -------------------------------------------------------- |
-| `DIM_CUSTOMERS`                                        | Policyholder party (identity, contact, city, login)      |
-| `DIM_POLICIES`                                         | Life, health, property, pension, and savings contracts   |
-| `FCT_POLICY_FORECLOSURES`                              | Liens registered against a policy                        |
-| `FCT_POLICY_INVESTMENTS`                               | Monthly account value by policy and fund                 |
-| `FCT_INVESTMENT_FUNDS`                                 | Fund factsheet yields and assets                         |
-| `FCT_POLICY_STATUS`                                    | In-force valuation: sum insured, surrender, savings      |
-| `APP_CUSTOMER_CHURN_SCORES`                            | Churn probability and risk tier per customer ID          |
-| `APP_CUSTOMER_INTERACTION_EVENTS`                      | Synthetic reviews, agent questions, and web searches     |
-| `APP_CUSTOMER_AI_INSIGHTS`                             | Cached Bedrock (or fallback) customer summaries          |
-
-
-
-
-### Churn intelligence
-
-Features are built from warehouse behaviour plus **interaction events** (reviews, agent
-questions, product/help searches), normalized with `StandardScaler`, and modeled with
-balanced logistic regression. Scores are stored in SQLite for the API and UI. Interaction
-aggregates also feed **Amazon Bedrock** insight prompts when configured. Clickable
-recommendation drafts (email, SMS, call scripts) are **Bedrock-generated** as well — templates
-are not used when Bedrock is available.
-
-```bash
-python 3_job-train-churn-model/train_churn.py
-```
-
-
-
-### Local development
-
-```bash
-python3 -m pip install -r requirements-dev.txt
+git clone <this-repo> && cd <this-repo>
+python3 -m pip install -r requirements.txt
 python3 -m pip install -e .
-python3 scripts/init_db.py
-python3 4_application/start-app.py
-python3 -m pytest   # optional; integration tests seed a temp warehouse automatically
+python3 scripts/init_db.py                     # seed data/customer360.db
+python3 3_job-train-churn-model/train_churn.py # churn scores
+python3 4_application/start-app.py             # http://127.0.0.1:8080
 ```
 
+Copy [`.env.example`](.env.example) to configure Bedrock locally. Run tests with
+`python3 -m pytest`.
 
+## Architecture / Software Components
 
-### `__file__` / Workbench interactive runs
+![Runtime architecture](docs/diagrams/runtime-architecture.png)
 
-`Path(__file__)` is only defined when Python executes a **file** (for example
-`python 2_job-init-database/init_database.py`). In an interactive Workbench cell,
-pasting lines that use `__file__` raises `NameError`.
+| Component | Technology | Role |
+| --- | --- | --- |
+| Platform | Cloudera AI (AMP, Jobs, Applications) | Runs the setup jobs and hosts the web application |
+| Warehouse | SQLite (`DIM_*`, `FCT_*`, `APP_*` tables) | Synthetic policy, investment, interaction, churn, and cache data |
+| Churn model | scikit-learn (`StandardScaler` + balanced logistic regression) | Scores churn probability and risk tier per customer |
+| Backend | Python 3.11, FastAPI, Uvicorn | REST API, plus server-sent event (SSE) streams for LLM output |
+| Frontend | React 18, TypeScript, Vite, i18next | Single-page dashboard served by FastAPI from `frontend/dist` |
+| Generative AI | Amazon Bedrock, or an OpenAI-compatible endpoint | Customer insights, outreach drafts, retention recommendations, copilot, and seed data generation |
 
-Use one of these instead:
+The application runs as a single process on the Cloudera AI application port. FastAPI serves
+both the `/api` endpoints and the prebuilt React UI. Reads are plain REST calls. Insights,
+outreach drafts, the retention queue, and copilot answers stream to the browser as they are
+generated:
 
-```python
-# From a session whose working directory is the project root:
-%run 2_job-init-database/init_database.py
-%run 3_job-train-churn-model/train_churn.py   # after database init
-```
+![Logical request flows](docs/diagrams/logical-request-flows.png)
 
-```python
-import importlib.util
-from pathlib import Path
+The demo uses SQLite so it runs without external infrastructure. The Admin page can store and
+test connection settings for Cloudera Data Warehouse (Impala/Trino) and Iceberg. These
+connections are tested only; queries in this release still run against SQLite. In production,
+the same logical model maps onto CDW or Iceberg tables.
 
-for candidate in (Path.cwd(), *Path.cwd().parents):
-    boot = candidate / "bootstrap_entry.py"
-    if boot.is_file():
-        spec = importlib.util.spec_from_file_location("bootstrap_entry", boot)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        mod.bootstrap(None)
-        break
+Diagram sources: [docs/diagrams/](docs/diagrams/README.md).
 
-from customer360.paths import default_db_path
-from customer360.seed import init_database
+## Target Audience
 
-init_database(default_db_path(), rebuild=True)
-```
+- **Solution architects and sales engineers** demonstrating Customer 360, churn, and generative
+  AI use cases to insurance customers.
+- **Data scientists and ML engineers** extending the churn model or the LLM prompts and tools.
+- **Application developers** adapting the FastAPI + React application pattern to Cloudera AI.
+- **Insurance business stakeholders** (retention, distribution, customer experience) evaluating
+  AI-assisted retention workflows.
 
-If install fails with a missing `requirements.txt`, run:
+## Repository Structure
 
-```python
-%run 1_session-install-dependencies/install.py
-```
+| Path | Description |
+| --- | --- |
+| `.project-metadata.yaml` | AMP definition: environment variables, setup jobs, and the application |
+| `amp-catalog.yaml` | AMP catalog entry for Site Administration → AMPs |
+| `METADATA.yaml` | Catalog metadata for the Cloudera blueprint website |
+| `1_session-install-dependencies/` | Stage 1: Python dependency install |
+| `2_job-init-database/` | Stage 3: warehouse seed job |
+| `3_job-train-churn-model/` | Stage 4: churn model training job |
+| `4_application/` | Stage 5: application launcher |
+| `customer360/` | Python package: seed, warehouse, churn, insights, copilot agent, LLM providers, API |
+| `frontend/` | React + TypeScript UI (source in `src/`, prebuilt bundle in `dist/`) |
+| `data/` | Warehouse DDL (`*_schema.sql`) and cached LLM seed material (`seed_cache/`) |
+| `scripts/` | Frontend build, local seed, scaling, and cache refresh utilities |
+| `docs/` | Deployment guide, operations guide, and architecture diagrams |
+| `tests/` | pytest unit and API integration tests |
+| `app/`, `static/` | Separate sentiment-analysis reference demo (not part of this blueprint) |
 
-Generated databases are gitignored (`data/*.db`).
+## Prerequisites
 
-### Scale to ~5,000 customers
+- **Cloudera AI** workspace with permission to create projects, jobs, and applications, and a
+  **Python 3.11 Workbench (Standard)** runtime.
+- **Git access** to this repository from the Cloudera AI workspace.
+- **Optional: an LLM provider** for the generative AI features:
+  - an AWS account with **Amazon Bedrock** access to a model (default
+    `anthropic.claude-haiku-4-5-20251001-v1:0`), with credentials or an instance profile; or
+  - an **OpenAI-compatible endpoint** (for example Cloudera AI Inference, vLLM, or Ollama) and
+    its API token.
+- **Outbound network**: AWS Bedrock endpoints for your region (if using Bedrock). `nodejs.org`
+  is needed only if you rebuild the UI without Node installed.
+- **Local development**: Python 3.11+. Node.js 18+ only if you change the UI.
 
-The seed generator uses the same patterns as the default warehouse (policies,
-investments, coverage snapshots, foreclosures, interactions) and scales every table from
-that logic:
+## Hardware Requirements
 
-```bash
-python3 scripts/scale_warehouse.py --customers 5000
-```
+No GPU is required; LLM inference runs on the external provider.
 
-Or set `CUSTOMER360_SEED_CUSTOMERS=5000` before the init job / `python3 -m customer360.seed --customers 5000`, then run `3_job-train-churn-model/train_churn.py` for churn scores.
+| Deployment | Minimum |
+| --- | --- |
+| Launchable / demo (AMP) | Application: 2 vCPU, 4 GiB RAM. Setup jobs: up to 2 vCPU, 4 GiB RAM each (from `.project-metadata.yaml`) |
+| Production / enterprise | _To be determined._ Size against the customer's warehouse (CDW / Iceberg) and LLM endpoint |
 
-### API performance (large warehouses)
+## Documentation
 
-After seeding, the warehouse precomputes:
-
-- `APP_CUSTOMER_METRICS` — per-customer value, policy count, investment tracks (customer list avoids heavy per-row subqueries).
-- `APP_OVERVIEW_COUNTS` — domain card counts.
-- `APP_PORTFOLIO_ANALYTICS_CACHE` — portfolio charts/KPIs per segment (seed, churn train, or `scripts/refresh_api_caches.py`). The API serves this JSON on read; cache misses are computed once and stored (write-through).
-- `APP_BOOK_*_TREND` — materialized book-wide strategic objective series (savings AUM, premium momentum, engagement) for fast chart loads without re-aggregating facts on every request.
-
-Refresh caches on an existing DB without reseeding:
-
-```bash
-python3 scripts/refresh_api_caches.py
-```
-
-The customer list API enforces `limit` **≤ 100**; the UI defaults to 50 with 25/50/100 options.
-
-### Frontend without Node on PATH
-
-The repo includes a prebuilt `frontend/dist/`. Restart the application after `git pull` —
-you do **not** need `npm` for that.
-
-To rebuild the UI in a standard Python 3.11 CAI session (no system Node):
-
-```python
-%run scripts/build_frontend.py
-```
-
-The script skips work if `frontend/dist/index.html` already exists. It downloads a
-portable Node.js binary into `.tools/` when `npm` is missing (requires outbound HTTPS
-to `nodejs.org`).
-
-## Applied AI sentiment reference service
-
-A minimal, self-contained **Applied AI** demo (TF-IDF + logistic regression via
-scikit-learn) served through **FastAPI** with a small static web UI. It lives
-alongside Customer 360 in this repo and uses its own dependencies
-(`applied-ai-sentiment-requirements.txt`).
-
-```
-app/              FastAPI app + model training/inference
-scripts/train.py  Trains models/sentiment.joblib
-static/index.html Demo UI
-tests/            pytest unit + API tests
-.cursor/          Optional Cloud Agent install/start helpers for this demo
-```
-
-```bash
-bash .cursor/install.sh   # train model + venv deps for sentiment demo
-bash .cursor/start.sh     # http://localhost:8000
-```
-
-Manual run: `pip install -r applied-ai-sentiment-requirements.txt`, then
-`python -m scripts.train` and `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+- [Deploy on Cloudera AI](docs/CAI_APPLICATION.md): AMP import, catalog registration, runtime,
+  and manual reruns
+- [Operations guide](docs/OPERATIONS.md): environment variables, LLM providers, localization and
+  reseeding, scaling, caches, frontend builds, and Workbench tips
+- [Architecture diagrams](docs/diagrams/README.md): Mermaid sources and regeneration commands
+- [Cloudera AI documentation](https://docs.cloudera.com/machine-learning/cloud/index.html)
+- [Amazon Bedrock documentation](https://docs.aws.amazon.com/bedrock/)
