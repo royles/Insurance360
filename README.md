@@ -6,6 +6,9 @@ when you change the UI.
 ## Insurance Customer 360
 
 Unified customer dashboard for Cloudera AI (CAI), backed by a SQLite warehouse.
+All data is synthetic and representative. Customers, policies, employers, insurers,
+and interaction text are generated for demonstration and do not describe real people
+or businesses.
 
 ### Architecture resources
 
