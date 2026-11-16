@@ -1,0 +1,273 @@
+{
+  "territory_id": "es",
+  "seed_language": "en",
+  "source": "profile",
+  "first_names": [
+    "Carlos",
+    "Ana",
+    "Luis",
+    "María",
+    "Javier",
+    "Lucía",
+    "Miguel",
+    "Sofía",
+    "Pablo",
+    "Elena",
+    "Diego",
+    "Laura",
+    "Antonio",
+    "Carmen",
+    "Manuel",
+    "Isabel",
+    "Francisco",
+    "Paula",
+    "Jorge",
+    "Marta"
+  ],
+  "last_names": [
+    "García",
+    "Rodríguez",
+    "González",
+    "Fernández",
+    "López",
+    "Martínez",
+    "Sánchez",
+    "Pérez",
+    "Gómez",
+    "Martín",
+    "Jiménez",
+    "Ruiz",
+    "Hernández",
+    "Díaz",
+    "Moreno",
+    "Muñoz",
+    "Álvarez",
+    "Romero",
+    "Navarro",
+    "Torres"
+  ],
+  "cities": [
+    {
+      "name": "Madrid",
+      "street": "Gran Vía",
+      "postal_code": 28001
+    },
+    {
+      "name": "Barcelona",
+      "street": "Passeig de Gràcia",
+      "postal_code": 8001
+    },
+    {
+      "name": "Valencia",
+      "street": "Calle Colón",
+      "postal_code": 46001
+    },
+    {
+      "name": "Sevilla",
+      "street": "Avenida de la Constitución",
+      "postal_code": 41001
+    },
+    {
+      "name": "Zaragoza",
+      "street": "Paseo Independencia",
+      "postal_code": 50001
+    },
+    {
+      "name": "Málaga",
+      "street": "Calle Larios",
+      "postal_code": 29001
+    },
+    {
+      "name": "Bilbao",
+      "street": "Gran Vía",
+      "postal_code": 48001
+    },
+    {
+      "name": "Murcia",
+      "street": "Plaza Circular",
+      "postal_code": 30001
+    }
+  ],
+  "city_aliases": {
+    "madrid": "Madrid",
+    "barcelona": "Barcelona",
+    "valencia": "Valencia",
+    "sevilla": "Sevilla",
+    "seville": "Sevilla",
+    "zaragoza": "Zaragoza",
+    "malaga": "Málaga",
+    "málaga": "Málaga",
+    "bilbao": "Bilbao",
+    "murcia": "Murcia"
+  },
+  "employers": [
+    [
+      1001,
+      "Cumbre Energía"
+    ],
+    [
+      1002,
+      "Naranja Retail"
+    ],
+    [
+      1003,
+      "Costa Norte Banco"
+    ],
+    [
+      1004,
+      "Señal Telecom"
+    ],
+    [
+      1005,
+      "Meseta Fuels"
+    ]
+  ],
+  "corp_names": {
+    "1": "Alba Vida",
+    "7": "Prado Pensiones",
+    "8": "Ribera Ahorro"
+  },
+  "funds": [
+    [
+      7,
+      5101,
+      "Plan de pensiones — Equilibrado"
+    ],
+    [
+      7,
+      5102,
+      "Plan de pensiones — Renta variable"
+    ],
+    [
+      1,
+      2101,
+      "Ahorro vida — Conservador"
+    ],
+    [
+      1,
+      2102,
+      "Ahorro vida — Crecimiento"
+    ],
+    [
+      8,
+      8101,
+      "Fondo de inversión — Multiactivo"
+    ],
+    [
+      8,
+      8102,
+      "Fondo de inversión — Índice global"
+    ]
+  ],
+  "marital_status": [
+    {
+      "code": "S",
+      "label": "Soltero/a"
+    },
+    {
+      "code": "C",
+      "label": "Casado/a"
+    },
+    {
+      "code": "D",
+      "label": "Divorciado/a"
+    },
+    {
+      "code": "V",
+      "label": "Viudo/a"
+    }
+  ],
+  "customer_types": [
+    {
+      "type": 1,
+      "label": "DNI"
+    },
+    {
+      "type": 2,
+      "label": "Pasaporte"
+    },
+    {
+      "type": 3,
+      "label": "NIE"
+    },
+    {
+      "type": 5,
+      "label": "Sociedad"
+    }
+  ],
+  "interaction_copy": {
+    "product_searches": [
+      "Compare pension balanced vs equity tracks",
+      "Critical illness rider eligibility",
+      "Add family member to health supplementary",
+      "Study fund contribution limits",
+      "Life insurance coverage calculator",
+      "Property policy renewal quote"
+    ],
+    "help_searches": [
+      "How to update payment method",
+      "Cancel or surrender a policy",
+      "Missing premium payment options",
+      "Portal login verification code",
+      "Download annual policy statement",
+      "Complaint escalation process",
+      "Change communication preferences"
+    ],
+    "agent_topics": [
+      {
+        "title": "Premium increase explanation",
+        "topic": "billing",
+        "resolved_default": true
+      },
+      {
+        "title": "Switch investment track on pension",
+        "topic": "investments",
+        "resolved_default": true
+      },
+      {
+        "title": "Request policy cancellation",
+        "topic": "retention",
+        "resolved_default": false
+      },
+      {
+        "title": "Coverage gap after job change",
+        "topic": "coverage",
+        "resolved_default": true
+      },
+      {
+        "title": "Foreclosure impact on policies",
+        "topic": "legal",
+        "resolved_default": false
+      },
+      {
+        "title": "Claim status follow-up",
+        "topic": "claims",
+        "resolved_default": true
+      },
+      {
+        "title": "Duplicate charge on credit card",
+        "topic": "billing",
+        "resolved_default": false
+      }
+    ],
+    "review_titles": [
+      "Mobile app experience",
+      "Claims handling speed",
+      "Agent courtesy on phone",
+      "Pension statement clarity",
+      "Health plan network",
+      "Digital self-service tools"
+    ],
+    "review_detail_positive": "Praised quick resolution.",
+    "review_detail_negative": "Requested clearer follow-up.",
+    "agent_detail_resolved": "Agent provided next steps.",
+    "agent_detail_unresolved": "Customer awaiting callback.",
+    "web_session_detail": "Session recorded in digital analytics."
+  },
+  "foreclosure_labels": {
+    "yes": "Yes",
+    "no": "No",
+    "policy": "Policy",
+    "claim": "Claim"
+  }
+}
