@@ -1,5 +1,14 @@
 # Cloudera Blueprint: Insurance Customer 360
 
+[![Author-Chris Royles](https://img.shields.io/badge/Author-Chris%20Royles-555555)](https://github.com/royles)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
+[![Cloudera Blueprint](https://img.shields.io/badge/Cloudera-Blueprint-f96702.svg)](METADATA.yaml)
+
+<p align="center">
+  <img width="700" height="400" alt="image" src="https://github.com/user-attachments/assets/2886a286-e7da-43e0-8748-7ba00170bcc1" />
+</p>
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -198,3 +207,11 @@ No GPU is required; LLM inference runs on the external provider.
 - [Architecture diagrams](docs/diagrams/README.md): Mermaid sources and regeneration commands
 - [Cloudera AI documentation](https://docs.cloudera.com/machine-learning/cloud/index.html)
 - [Amazon Bedrock documentation](https://docs.aws.amazon.com/bedrock/)
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
+
+## Disclaimer
+
+*This blueprint is intended for Proof-of-Concept and research use only. It is not designed for production deployment. Use in production environments is at the user's own risk. The authors and contributors accept no liability for operational impacts or damages.*
