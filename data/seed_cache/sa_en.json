@@ -1,0 +1,271 @@
+{
+  "territory_id": "sa",
+  "seed_language": "en",
+  "source": "profile",
+  "first_names": [
+    "Mohammed",
+    "Fatima",
+    "Abdullah",
+    "Noura",
+    "Khalid",
+    "Sara",
+    "Fahad",
+    "Layla",
+    "Omar",
+    "Hessa",
+    "Turki",
+    "Maha",
+    "Saud",
+    "Reem",
+    "Yousef",
+    "Aisha",
+    "Bandar",
+    "Dana",
+    "Faisal",
+    "Lama"
+  ],
+  "last_names": [
+    "Al-Rashid",
+    "Al-Harbi",
+    "Al-Otaibi",
+    "Al-Ghamdi",
+    "Al-Qahtani",
+    "Al-Shehri",
+    "Al-Dossari",
+    "Al-Zahrani",
+    "Al-Mutairi",
+    "Al-Anazi",
+    "Al-Shammari",
+    "Al-Enezi",
+    "Al-Johani",
+    "Al-Balawi",
+    "Al-Fahad",
+    "Al-Saud",
+    "Al-Malki",
+    "Al-Hazmi",
+    "Al-Sulaiman",
+    "Al-Khalid"
+  ],
+  "cities": [
+    {
+      "name": "Riyadh",
+      "street": "King Fahd Road",
+      "postal_code": 11564
+    },
+    {
+      "name": "Jeddah",
+      "street": "Palestine Street",
+      "postal_code": 21442
+    },
+    {
+      "name": "Dammam",
+      "street": "King Saud Street",
+      "postal_code": 32241
+    },
+    {
+      "name": "Mecca",
+      "street": "Ibrahim Al Khalil Street",
+      "postal_code": 24231
+    },
+    {
+      "name": "Medina",
+      "street": "King Abdullah Road",
+      "postal_code": 42311
+    },
+    {
+      "name": "Khobar",
+      "street": "Prince Turki Street",
+      "postal_code": 34424
+    },
+    {
+      "name": "Tabuk",
+      "street": "King Abdulaziz Road",
+      "postal_code": 71491
+    },
+    {
+      "name": "Abha",
+      "street": "King Khalid Road",
+      "postal_code": 62521
+    }
+  ],
+  "city_aliases": {
+    "riyadh": "Riyadh",
+    "jeddah": "Jeddah",
+    "dammam": "Dammam",
+    "mecca": "Mecca",
+    "medina": "Medina",
+    "khobar": "Khobar",
+    "tabuk": "Tabuk",
+    "abha": "Abha"
+  },
+  "employers": [
+    [
+      1001,
+      "Najd Energy"
+    ],
+    [
+      1002,
+      "Gulf Polymers"
+    ],
+    [
+      1003,
+      "Red Sea Telecom"
+    ],
+    [
+      1004,
+      "Dune Bank"
+    ],
+    [
+      1005,
+      "Horizon City Co"
+    ]
+  ],
+  "corp_names": {
+    "1": "Palm Life",
+    "7": "Dune Pension",
+    "8": "Wadi Savings"
+  },
+  "funds": [
+    [
+      7,
+      5101,
+      "مسار التقاعد — متوازن"
+    ],
+    [
+      7,
+      5102,
+      "مسار التقاعد — أسهم"
+    ],
+    [
+      1,
+      2101,
+      "ادخار الحياة — محافظ"
+    ],
+    [
+      1,
+      2102,
+      "ادخار الحياة — نمو"
+    ],
+    [
+      8,
+      8101,
+      "صندوق ادخار — متعدد الأصول"
+    ],
+    [
+      8,
+      8102,
+      "صندوق ادخار — مؤشر عالمي"
+    ]
+  ],
+  "marital_status": [
+    {
+      "code": "S",
+      "label": "Single"
+    },
+    {
+      "code": "M",
+      "label": "Married"
+    },
+    {
+      "code": "D",
+      "label": "Divorced"
+    },
+    {
+      "code": "W",
+      "label": "Widowed"
+    }
+  ],
+  "customer_types": [
+    {
+      "type": 1,
+      "label": "National ID"
+    },
+    {
+      "type": 2,
+      "label": "Passport"
+    },
+    {
+      "type": 3,
+      "label": "Iqama"
+    },
+    {
+      "type": 5,
+      "label": "Corporation"
+    }
+  ],
+  "interaction_copy": {
+    "product_searches": [
+      "Compare pension balanced vs equity tracks",
+      "Critical illness rider eligibility",
+      "Add family member to health supplementary",
+      "Study fund contribution limits",
+      "Life insurance coverage calculator",
+      "Property policy renewal quote"
+    ],
+    "help_searches": [
+      "How to update payment method",
+      "Cancel or surrender a policy",
+      "Missing premium payment options",
+      "Portal login verification code",
+      "Download annual policy statement",
+      "Complaint escalation process",
+      "Change communication preferences"
+    ],
+    "agent_topics": [
+      {
+        "title": "Premium increase explanation",
+        "topic": "billing",
+        "resolved_default": true
+      },
+      {
+        "title": "Switch investment track on pension",
+        "topic": "investments",
+        "resolved_default": true
+      },
+      {
+        "title": "Request policy cancellation",
+        "topic": "retention",
+        "resolved_default": false
+      },
+      {
+        "title": "Coverage gap after job change",
+        "topic": "coverage",
+        "resolved_default": true
+      },
+      {
+        "title": "Foreclosure impact on policies",
+        "topic": "legal",
+        "resolved_default": false
+      },
+      {
+        "title": "Claim status follow-up",
+        "topic": "claims",
+        "resolved_default": true
+      },
+      {
+        "title": "Duplicate charge on credit card",
+        "topic": "billing",
+        "resolved_default": false
+      }
+    ],
+    "review_titles": [
+      "Mobile app experience",
+      "Claims handling speed",
+      "Agent courtesy on phone",
+      "Pension statement clarity",
+      "Health plan network",
+      "Digital self-service tools"
+    ],
+    "review_detail_positive": "Praised quick resolution.",
+    "review_detail_negative": "Requested clearer follow-up.",
+    "agent_detail_resolved": "Agent provided next steps.",
+    "agent_detail_unresolved": "Customer awaiting callback.",
+    "web_session_detail": "Session recorded in digital analytics."
+  },
+  "foreclosure_labels": {
+    "yes": "Yes",
+    "no": "No",
+    "policy": "Policy",
+    "claim": "Claim"
+  }
+}
